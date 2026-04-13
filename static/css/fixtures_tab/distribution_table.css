@@ -1,0 +1,6 @@
+
+.flex-header {
+        display: flex;
+    }
+
+[x-cloak] { display: none !important; }

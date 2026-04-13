@@ -1,0 +1,48 @@
+/* Specific styles for the Sync Range button */
+.btn-sync-range {
+    padding: 9px 20px;
+    background-color: #007bff;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-sync-range:hover {
+    background-color: #0056b3;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+.btn-sync-range:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* HTMX Loading State Logic */
+
+/* Hide the loading text/icon by default */
+.sync-loader {
+    display: none;
+}
+
+/* When HTMX is making a request (class added to the form or button) */
+.htmx-request .sync-loader {
+    display: inline-block;
+}
+
+/* Optional: change button color during sync */
+.htmx-request.btn-sync-range,
+.htmx-request .btn-sync-range {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.8;
+}

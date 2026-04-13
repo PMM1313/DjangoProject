@@ -1,0 +1,59 @@
+
+
+{# It is used in teams history in teams tab#}
+{% with activity=team.get_fixtures %}
+    <div class="current-section">
+        <strong>Current</strong>
+        {% for match in activity.current %}
+            <p>{{ match.date|date:"d M" }}: {{ match.home_team_name }} vs {{ match.away_team_name }}</p>
+        {% empty %}
+            <p style="color: #a0aec0; font-size: 0.85rem;">No current fixtures.</p>
+        {% endfor %}
+    </div>
+
+    <hr>
+
+    <div class="archived-section">
+        <strong>History</strong>
+        <div class="history-list"
+             style="display: flex;
+             flex-direction: column;
+             gap: 8px;
+             margin-top: 10px;
+             white-space: nowrap;      /* Don't let text wrap */
+             overflow: hidden;         /* Hide the extra text */
+             text-overflow: ellipsis;  /* Add '...' if text is too long */
+             ">
+
+        {% for match in activity.archived %}
+            <div class="history-item" style="display: flex; font-size: 0.9rem; border-bottom: 1px solid #edf2f7; padding-bottom: 4px;">
+                <span class="text-muted" style="color: #718096; width: 50px; display: inline-block;">
+                    {{ match.date|date:"d M" }}
+                </span>
+
+                <span style=" width: 210px; text-align: right;
+                        {% if match.home_id == team.id %}color: #48bb78; font-weight: bold;{% endif %}">
+                    {{ match.home_team_name }}
+                </span>
+
+                <span style="display: inline-block; width: 50px; text-align: center;
+                        {% if match.home_score == match.away_score %}color: #48bb78; font-weight: bold;{% endif %}">
+                    {{ match.home_score }} - {{ match.away_score }}
+                </span>
+
+                <span style=" width: 210px; text-align: left;
+                        {% if match.away_id == team.id %}color: #48bb78; font-weight: bold;{% endif %}">
+                    {{ match.away_team_name }}
+                </span>
+
+                <span style="display: inline-block; width: 60px; text-align: right; margin-left: 10px; background: #f7fafc; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">
+                    Coef: {{ match.coefficient }}
+                </span>
+            </div>
+        {% empty %}
+            <p style="color: #a0aec0; font-size: 0.85rem;">No history available</p>
+        {% endfor %}
+    </div>
+    </div>
+
+{% endwith %}

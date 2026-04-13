@@ -1,0 +1,22 @@
+.status-indicator {
+    height: 12px;
+    width: 12px;
+    display: inline-block;
+    border-radius: 50%;
+}
+
+.status-indicator.active {
+    background-color: #28a745;
+    box-shadow: 0 0 0 rgba(40, 167, 69, 0.4);
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.inactive {
+    background-color: #ccc;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+}

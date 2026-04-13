@@ -1,0 +1,25 @@
+.table-buttons-container {
+    display: flex;
+    flex-wrap: wrap;
+    /*min-height: 50px;*/
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    gap: 20px;
+    padding: 10px;
+    margin-bottom: 20px;
+    margin-top: 20px;
+    align-items: center;
+}
+
+/* show todays matches button */
+.btn-summary {
+    padding: 6px 12px;      /* Slightly smaller padding */
+    cursor: pointer;
+    width: fit-content;     /* Only as wide as the text */
+    flex-grow: 0;           /* 1. DO NOT grow to fill space */
+    flex-shrink: 0;         /* 2. DO NOT shrink if space is tight */
+    align-self: center;     /* 3. Center itself vertically, don't stretch height */
+    font-size: 0.9rem;      /* 4. Optional: make text slightly smaller */
+    white-space: nowrap;    /* 5. Keep text on one line */
+}

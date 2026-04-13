@@ -1,0 +1,30 @@
+/* The container inside the cell */
+.odds-wrapper {
+    position: relative;      /* new */
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: center;     /* Center vertically */
+    min-height: 45px;        /* new */
+    width: 100%;
+    height: 100%;            /* Fill the cell's height */
+    overflow: hidden;        /* Prevent the input from 'poking out' */
+    margin: 0;
+}
+
+.odds-input {
+    width: 90%;              /* Leave a tiny 5% gap on each side */
+    height: 28px;            /* Set a fixed height slightly smaller than the row */
+    box-sizing: border-box;  /* Ensures padding doesn't grow the width */
+    text-align: center;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin: 0;               /* Remove default browser margins */
+    outline: none;
+}
+/* remove increment arrows in the input box */
+/* Chrome, Safari, Edge, Opera */
+.odds-input::-webkit-outer-spin-button,
+.odds-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}

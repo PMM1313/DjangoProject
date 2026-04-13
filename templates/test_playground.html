@@ -1,0 +1,106 @@
+
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+@keyframes highlight {
+    0% { background-color: #fff59d; transform: scale(1.05); }
+    100% { background-color: transparent; transform: scale(1); }
+}
+
+/* This class triggers the animation */
+.value-updated {
+    animation: highlight 0.8s ease-out;
+    display: inline-block; /* Required for transform/scale to work */
+    padding: 2px 5px;
+    border-radius: 4px;
+}
+</style>
+
+<div style="padding: 40px; max-width: 900px; margin: 0 auto;"
+     x-data="{
+        selectedStore: 'distribution',
+        jsonPayload: '[{&quot;id&quot;: 1, &quot;amount&quot;: 10}, {&quot;id&quot;: 2, &quot;amount&quot;: 20}, {&quot;id&quot;: 3, &quot;amount&quot;: 30}, {&quot;id&quot;: 4, &quot;amount&quot;: 40}, {&quot;id&quot;: 5, &quot;amount&quot;: 50}]',
+        updateStore() {
+            const newData = JSON.parse(this.jsonPayload);
+            const targetStore = Alpine.store(this.selectedStore);
+
+            newData.forEach(newItem => {
+                let index = targetStore.items.findIndex(i => i.id === newItem.id);
+
+                if (index !== -1) {
+                    // Check if value actually changed
+                    if (targetStore.items[index].amount !== newItem.amount) {
+                        // 1. Temporarily set amount to null to 'kill' the old element key
+                        const finalAmount = newItem.amount;
+                        targetStore.items[index].amount = null;
+
+                        // 2. Use nextTick to wait for Alpine to clear the old element
+                        // Then set the final amount to trigger the 'New' element animation
+                        this.$nextTick(() => {
+                            targetStore.items[index].amount = finalAmount;
+                            targetStore.items = [...targetStore.items];
+                        });
+                    }
+                } else {
+                    targetStore.items.push(newItem);
+                }
+            });
+
+            targetStore.items = [...targetStore.items];
+        }
+     }">
+
+    <h2>Store Lab: Multi-Store Controller</h2>
+
+    <div style="background: #f4f4f4; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
+        <label><strong>1. Choose Store:</strong></label>
+        <select x-model="selectedStore" style="padding: 8px; margin: 10px;">
+            <option value="distribution">Distribution Store</option>
+            <option value="test">Archive Store</option>
+        </select>
+
+        <br>
+
+        <label><strong>2. Data to send (5 items):</strong></label>
+        <textarea x-model="jsonPayload" style="width: 100%; height: 80px; font-family: monospace; margin-top: 10px;"></textarea>
+
+        <button @click="updateStore()"
+                style="margin-top: 15px; background: #0d6efd; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
+            Update Selected Store
+        </button>
+    </div>
+
+    <div style="display: flex; gap: 20px; margin-top: 30px;">
+        <div style="flex: 1; border: 1px solid #ddd; padding: 15px;">
+            <h4 style="color: #0d6efd;">Distribution Store</h4>
+            <template x-for="item in $store.distribution.items" :key="item.id">
+                <div
+                    x-transition:enter="transition ease-out duration-500"
+                    x-transition:enter-start="opacity-0 transform -translate-y-2"
+                    x-transition:enter-end="opacity-100 transform translate-y-0"
+                    class="col-odds"
+                    style="padding: 10px; border-bottom: 1px solid #eee;"
+                >
+                    <span x-text="'ID ' + item.id"></span>:
+                    <strong x-text="$store.distribution.money(item.amount)"></strong>
+                </div>
+            </template>
+            <p x-show="$store.distribution.items.length === 0" style="color: #999;">Empty</p>
+        </div>
+
+        <div style="flex: 1; border: 1px solid #ddd; padding: 15px;">
+            <h4 style="color: #dc3545;">Test Store</h4>
+            <template x-for="item in $store.test.items" :key="item.id">
+                <div class="col-odds" style="padding: 10px; border-bottom: 1px solid #eee;">
+                    <span>ID <span x-text="item.id"></span></span>:
+                    <strong x-flash="item.amount" class="value-updated">
+                        <span x-text="$store.test.money(item.amount)"></span>
+                    </strong>
+                </div>
+            </template>
+            <p x-show="$store.test.items.length === 0" style="color: #999;">Empty</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

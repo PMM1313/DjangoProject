@@ -1,0 +1,17 @@
+<form hx-post="{% url 'add_manual_fixture' %}" hx-swap="none" class="p-4 border rounded bg-light">
+    {% csrf_token %}
+    <div class="row">
+        <div class="col-md-6">{{ form.home_team.label_tag }} {{ form.home_team }}</div>
+        <div class="col-md-6">{{ form.away_team.label_tag }} {{ form.away_team }}</div>
+    </div>
+    <div class="row mt-2">
+        <div class="col-md-4">{{ form.league.label_tag }} {{ form.league }}</div>
+        <div class="col-md-4">{{ form.country.label_tag }} {{ form.country }}</div>
+        <div class="col-md-4">{{ form.season.label_tag }} {{ form.season }}</div>
+    </div>
+    <div class="row mt-2">
+        <div class="col-md-6">{{ form.date.label_tag }} {{ form.date }}</div>
+        <div class="col-md-6">{{ form.start_time.label_tag }} {{ form.start_time }}</div>
+    </div>
+    <button type="submit" class="btn btn-success mt-3">Save Fixture</button>
+</form>

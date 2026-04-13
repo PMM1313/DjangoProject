@@ -1,0 +1,56 @@
+.toast-notification {
+    /* Colors & Text */
+    color: white;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 1.4;
+    word-wrap: break-word;
+
+    /* Sizing & Spacing */
+    width: 100%;
+    min-width: 250px;
+    padding: 20px 20px; /* From your second block */
+    margin-bottom: 10px;
+    border-radius: 6px; /* From your second block */
+
+    /* Effects */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    pointer-events: auto;
+
+    /* Transitions & Animations */
+    transition: opacity 0.5s ease;
+    animation: toastSlideIn 0.3s ease-out forwards;
+}
+
+/* Success Level (Green) */
+.toast-notification.success {
+    background-color: #28a745;
+}
+
+/* Warning Level (Yellow/Orange) */
+.toast-notification.warning {
+    background-color: #ff9800;
+}
+
+/* Error Level (Red) - for future use */
+.toast-notification.error {
+    background-color: #dc3545;
+}
+
+#toast-container {
+    position: fixed;
+    top: 30px;
+    right: 40px;
+    width: 320px;
+    z-index: 9999; /* Ensures it is above navbars and tables */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    pointer-events: none; /* Allows you to click "through" the container if no toast is there */
+    gap: 12px;
+}
+
+@keyframes toastSlideIn {
+    from { transform: translateX(110%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}

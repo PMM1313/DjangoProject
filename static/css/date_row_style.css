@@ -1,0 +1,31 @@
+.date-row td {
+    background-color: #f8f9fa;
+    padding: 0; /* Remove padding from TD so the DIV can fill it */
+    border-left: 4px solid #007bff;
+    cursor: pointer;
+}
+
+.date-row-content {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* Force everything to the left */
+    /*justify-content: center;*/
+    /* Apply the padding here instead */
+    /* indents based on table width */
+    padding: 10px 10px 10px 40%;
+    width: 100%;
+}
+
+.toggle-icon {
+    width: 25px; /* Fixed width ensures vertical alignment across rows */
+    display: inline-block;
+    flex-shrink: 0;
+    text-align: center; /* Centers the icon WITHIN its 25px box */
+}
+
+.date-emoji {
+    width: 30px;
+    display: inline-block;
+    flex-shrink: 0;
+    text-align: center;
+}

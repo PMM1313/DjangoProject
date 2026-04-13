@@ -1,0 +1,73 @@
+/* The Square Button */
+.btn-settings-square {
+    width: 32px;
+    height: 32px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex; /* Use inline-flex to center in cell */
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.btn-settings-square:hover {
+    background-color: #e2e6ea;
+    border-color: #adb5bd;
+}
+
+.icon-gear {
+    font-size: 16px;
+}
+
+/* The Dropdown Menu Logic */
+.settings-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: #ffffff;
+    min-width: 130px;
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: left;
+}
+
+.dropdown-content.show {
+    display: block;
+}
+
+.dropdown-content button {
+    width: 100%;
+    padding: 10px 12px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333;
+}
+
+.dropdown-content button:last-child {
+    border-bottom: none;
+}
+
+.dropdown-content button:hover {
+    background-color: #f8f9fa;
+    color: #0d6efd;
+}
+/* Lift the entire row when the dropdown is active so it overlaps the row below */
+.fixture-table tr:has(.dropdown-content.show) {
+    position: relative;
+    z-index: 1001;
+}

@@ -1,0 +1,48 @@
+#today-summary-container {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out, opacity 0.3s ease;
+    opacity: 0;
+    background: #fff;
+    /*border: 1px solid #ddd;*/
+    /*border-radius: 8px;*/
+    /*margin-top: 10px;*/
+}
+
+#today-summary-container.expanded {
+    max-height: 1000px; /* Set to a value larger than your content will ever be */
+    opacity: 1;
+    padding: 15px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+/* Style the individual match rows in the summary */
+.summary-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 10px;
+    border-bottom: 1px solid #8b8b8b;
+    font-size: 0.95rem;
+    color: #333;
+    transition: background 0.2s;
+}
+
+.summary-item:hover {
+    background-color: #f8f9fa; /* Slight highlight on hover */
+}
+
+.summary-item strong {
+    color: #007bff; /* Professional blue for the time */
+    min-width: 60px;
+    font-variant-numeric: tabular-nums; /* Keeps numbers perfectly aligned */
+}
+.summary-item:first-child {
+    border-top: 1px solid #8b8b8b; /* Removes line from the last item */
+}
+/*.summary-item:last-child {*/
+/*    border-bottom: none; !* Removes line from the last item *!*/
+/*}*/

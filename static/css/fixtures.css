@@ -1,0 +1,324 @@
+/* ===== Fixture Table Styling ===== */
+
+.fixture-block {
+    margin-bottom: 30px;
+}
+
+/* Fixture list title above table */
+.fixture-block h3 {
+    margin: 20px 0 12px;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #1f2d3d;
+}
+
+/* Main table */
+.fixture-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    font-family: Arial, sans-serif;
+    font-size: 0.95em;
+    background-color: #ecf0f1;
+    /* Optional: adds a border to the top/left of the whole table */
+    border-top: 1px solid #dcdcdc;
+    border-left: 1px solid #dcdcdc;
+}
+
+/* ===== Table Headers ===== */
+.fixture-table th {
+    background: #f3f4f6;
+    font-weight: 700;
+    padding: 10px;
+    text-align: center;
+    /*border: 1px solid #dcdcdc;*/
+    border: none;
+    color: #333;
+
+    /* 🔒 Sticky header magic */
+    position: sticky;
+    top: 0;
+
+    /*box-shadow: 0 10px 15px -5px rgba(0, 0, 0, 0.2);*/
+    z-index: 50;
+    /*background: #f9fafb;*/
+    /*box-shadow: 0 6px 12px rgba(0,0,0,0.12);*/
+    /*transition: box-shadow 0.2s ease;*/
+    /* 2. Use inset box-shadow to create solid internal borders */
+    /* This draws a 1px line on the right and bottom of every header cell */
+    /* Use a solid outline instead of box-shadow */
+    /*outline: 1px solid #dcdcdc;*/
+    /* This pushes the outline 1px inside so it matches the collapsed grid below */
+    /*outline-offset: -0px;*/
+    /* Border Logic: Only Right and Bottom */
+    /* This prevents the "double border" look */
+    border-right: 1px solid #dcdcdc;
+    border-bottom: 1px solid #dcdcdc;
+
+    background-clip: padding-box;
+}
+
+.fixture-table th::after {
+    content: '';
+    position: absolute;
+    top: 100%; /* Starts exactly at the bottom of the header */
+    left: 0;
+    width: 100%;
+    height: 15px; /* How far down the shadow effect goes */
+    background: linear-gradient(to bottom, rgba(0,0,0,0.15), transparent);
+    pointer-events: none;
+}
+/*!* Optional: Add a left border to the very first cell only *!*/
+/*.fixture-table th:first-child {*/
+/*    box-shadow: inset 1px 0 0 #dcdcdc, inset -1px -1px 0 #dcdcdc;*/
+/*}*/
+
+/* ===== Table Cells ===== */
+.fixture-table td {
+    background: #ecf0f1;
+    padding: 10px;
+    /* Use only right and bottom to prevent 2px thick lines */
+    border-right: 1px solid #dcdcdc;
+    border-bottom: 1px solid #dcdcdc;
+    vertical-align: middle;
+    text-align: center;
+    color: #222;
+    position: relative;
+    /*z-index: 1;*/
+}
+
+/* ===== Column Widths ===== */
+.col-country  { width: 12%; }
+.col-league   { width: 18%; }
+.col-match    { width: 40%; font-weight: 600; } /* Increased this */
+.col-odds     { width: 4%; }
+.col-action   { width: 17%; }
+.col-bet      { width: 5%; }
+.col-settings { width: 2%; }  /* Made this much smaller */
+
+/* ===== Country Group Row ===== */
+.country-row td {
+    background: linear-gradient(90deg, #1f2d3d, #2c3e50);
+    color: #ffffff;
+    font-weight: 700;
+    padding: 12px 16px;
+    font-size: 1.05rem;
+    text-align: left;
+    border: none;
+}
+
+/* ===== League Group Row ===== */
+.league-row td {
+    background-color: #ecf0f1;
+    font-weight: 600;
+    padding: 9px 16px;
+    text-align: left;
+    border-top: 2px solid #d0d0d0;
+    border-bottom: 1px solid #dcdcdc;
+    color: #2c3e50;
+    z-index: 1; /* Ensures it stays behind the sticky header's shadow */
+}
+
+/*.date-row td {*/
+/*    display: flex !important;*/
+/*    align-items: center !important;*/
+/*}*/
+
+/* ===== Fixture Rows ===== */
+.fixture-table tbody tr.fixture-row:nth-child(even) {
+    background-color: #fafafa;
+}
+
+.fixture-table tbody tr.fixture-row:hover td {
+    background-color: #d9e9ff;
+    transition: background-color 0.10s ease;
+}
+
+/* Layout for the Match Column */
+.match-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+/* 1. Hour Styling */
+.fixture-time {
+    width: 60px;
+    flex-shrink: 0;
+    text-align: left;
+    color: #444;
+    font-size: 1.1rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    font-family: "Roboto Mono", monospace;
+
+}
+
+/* 2. Team Grouping and Alignment */
+.teams-wrap {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Offsets the 60px time div on the left for true centering */
+    padding-right: 60px;
+    font-size: 1.1rem;
+}
+
+.team-home {
+    display:flex;
+    justify-content: right;
+    align-items: center;
+    width: 42%;
+    text-align: right;
+    font-weight: 700;
+    color: #222;
+}
+
+.team-away {
+    display:flex;
+    width: 42%;
+    text-align: left;
+    font-weight: 700;
+    color: #222;
+}
+
+
+/* ===== Odds Styling ===== */
+.fixture-table .col-odds {
+    padding: 0;
+    text-align: center;
+    vertical-align: middle;
+    font-weight: 600;
+    /*color: #0a58ca;*/
+}
+/* ===== Action Buttons ===== */
+.col-action button,
+.col-action a {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: none;
+    background: #0d6efd;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.col-action button:hover,
+.col-action a:hover {
+    background: #084298;
+}
+
+/* col action (play Button) */
+.col-action {
+    overflow: visible;
+    padding: 0 !important; /* Let the div handle the internal spacing */
+    height: 1px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* col bet */
+.col-bet {
+    padding: 0 !important; /* Let the div handle the internal spacing */
+    height: 1px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* ===== Last column Service ===== */
+.fixture-table td.col-settings {
+    overflow: visible; /* Crucial so the menu isn't hidden by the cell border */
+    position: relative;
+    text-align: center;
+}
+
+/* ===== Empty Table ===== */
+.no-fixtures {
+    padding: 40px;
+    font-size: 1rem;
+    color: #666;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* ===== Utilities ===== */
+.text-center {
+    text-align: center;
+}
+
+
+/* 1. The Country, League and Date Row fading if empty: Handles the Fade and the Slide */
+.row-fade-out {
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+/* 2. The Cells: Handles the Vertical Shrink (The "Soft" movement) */
+.row-fade-out td {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    line-height: 0 !important;
+    height: 0 !important;
+    font-size: 0 !important;
+    border-top-width: 0 !important;
+    border-bottom-width: 0 !important;
+    transition: all 0.6s ease;
+}
+
+
+/* 1. Instant Feedback: Target the row while the request is 'in-flight' */
+tr.fixture-row:has(.htmx-request) {
+  background-color: #fee2e2 !important; /* Light red */
+  color: #dc2626;                       /* Dark red text */
+  transition: background-color 0.2s ease;
+}
+
+/* 2. The Animation: Target the row as it leaves the DOM */
+::view-transition-old(fixture-row) {
+  animation: 400ms cubic-bezier(0.4, 0, 0.2, 1) both squeeze-out;
+  transform-origin: top;
+}
+
+/* 3. Orchestration: Slide other rows up */
+::view-transition-group(root) {
+  animation-duration: 400ms;
+}
+
+@keyframes squeeze-out {
+  0% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+}
+
+
+/* ===== Responsive ===== */
+@media screen and (max-width: 768px) {
+    .fixture-table {
+        font-size: 0.85rem;
+    }
+
+    .fixture-table th,
+    .fixture-table td {
+        padding: 8px;
+    }
+
+    .col-country,
+    .col-league,
+    .col-odds,
+    .col-action {
+        width: auto;
+    }
+
+    .col-match {
+        width: 45%;
+    }
+}

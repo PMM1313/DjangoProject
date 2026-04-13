@@ -1,0 +1,18 @@
+.streaks-collapsed {
+    max-height: 0;
+    opacity: 0;
+}
+
+.streaks-expanded {
+    max-height: 1000px; /* Large enough to fit your content */
+    opacity: 1;
+    padding: 15px 0;
+}
+#teams-streaks-content {
+    animation: fadeIn 0.4s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}

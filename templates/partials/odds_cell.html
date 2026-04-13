@@ -1,0 +1,23 @@
+<td class="col-odds" id="odds-container-{{ f.id }}">
+    <div class="odds-wrapper shimmer-target" id="odds-shimmer-{{ f.id }}">
+        {% if f.coefficient %}
+            <span class="odds-label">{{ f.coefficient|floatformat:2 }}</span>
+        {% else %}
+        <input type="number"
+               id="odds-input-{{ f.id }}"
+               onwheel="this.blur()"
+               class="odds-input"
+               value="{{ f.coefficient|default:' ' }}"
+               step="0.01"
+               oninput="togglePlayButton('{{ f.id }}')"
+               onkeydown="
+                   if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                       return false;
+                   } else if (event.key === 'Enter') {
+                       event.preventDefault();
+                       this.closest('tr').querySelector('.btn-play').click();
+                   }
+                ">
+        {% endif %}
+    </div>
+</td>

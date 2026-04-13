@@ -1,0 +1,250 @@
+.action-container {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    justify-content: center;
+    min-height: 45px; /* Matches the height of your Play button */
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* This is the most important line for the scanline */
+    margin: 0;
+    gap: 5px;
+    /*padding: 0 !important;*/
+}
+
+.status-match-played {
+    grid-column: 2;
+    font-size: 11px;
+    font-weight: 800;
+    color: #6c757d; /* Muted gray */
+    letter-spacing: 0.5px;
+}
+
+/* 1. The Container (The Parent) */
+/* When the ROW is loading, apply effect to these containers */
+.shimmer-target.htmx-request {
+    position: relative;
+    overflow: hidden; /* Keeps the scanline inside the cell */
+    pointer-events: none;
+    min-height: 34px; /* Matches your button height to prevent 'jumping' */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Use calc to make it smaller than the actual cell space */
+    width: calc(100% - 8px);  /* Creates 4px gap on left and right */
+    height: calc(100% - 8px); /* Creates 4px gap on top and bottom */
+    /* Centering logic */
+    margin-left: auto;
+    margin-right: auto;
+
+    /* Since the parent <td> is likely centering this, the gaps will appear even */
+    /*background-color: red !important;*/
+
+}
+
+/* 2. The Blurred Content (The Button) */
+.shimmer-target.htmx-request > * {
+    filter: blur(2px);
+    opacity: 0.3;
+}
+
+/* 3. The "Loading..." Text (Centered) */
+.action-container.htmx-request::before {
+    content: "LOADING...";
+    position: absolute;
+    z-index: 10; /* Sits on top of the scanline */
+    font-size: 10px;
+    font-weight: 900;
+    color: #222;
+    letter-spacing: 1px;
+}
+
+/* 4. The Scanline (Moving Light) */
+.shimmer-target.htmx-request::after {
+    content: "";
+    position: absolute;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    /* Gradient: Transparent -> White -> Transparent */
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.9),
+        transparent
+    );
+    z-index: 5; /* Sits behind the text, but over the button */
+    animation: scanline 1s infinite linear;
+}
+
+@keyframes scanline {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* the Draw or No Draw indicator before the Resolve button */
+.draw-indicator {
+    display: inline-block;
+    grid-column: 1;
+    width: 60px;         /* Set a width that fits "No Draw" comfortably */
+    text-align: center;  /* Centers the text inside that width */
+    padding: 2px 6px;
+    margin-left: 5px;
+    /*margin-right: 12px;  !* Consistent gap between indicator and button *!*/
+
+    /* Your existing styling */
+    background-color: #f3f4f6;
+    color: #374151;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid #d1d5db;
+}
+
+/* Optional: Different colors for each state to make them scannable */
+.draw-indicator.is-draw {
+    background-color: #dcfce7;
+    border-color: #374151;
+}
+
+.draw-indicator.no-draw {
+    background-color: #fee2e2; /* Light Red */
+    border-color: #374151;
+}
+
+/* Resolve button if disabled */
+/* The NEW style (the 'Disabled' state) */
+/* 1. THE BASE/ACTIVE STATE (Blue) */
+.col-action .btn-resolve {
+    grid-column: 2;
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: none;
+    font-weight: 600;
+    text-decoration: none;
+    background: #0d6efd; /* Blue */
+    color: #fff;
+    cursor: pointer;
+    /*transition: background 0.2s; !* Smooth color change *!*/
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    gap: 8px; /* Adds space between "Resolving..." and the spinner */
+    min-width: 115px;
+    min-height: 30px;
+    transition: all 0.1s ease; /* Makes the push feel smooth, not jittery */
+    /*box-shadow: 0 4px #084298; !* A darker blue "edge" underneath *!*/
+}
+
+.btn-resolve:active {
+    transform: translateY(3px); /* Move down */
+    /*box-shadow: 0 1px #084298; !* Shrink the shadow to 1px *!*/
+}
+
+/* 2. HOVER STATE FOR ACTIVE BUTTONS ONLY */
+/* This prevents the blue hover from appearing on disabled buttons */
+.btn-resolve:hover:not(:disabled) {
+    background: #0b5ed7; /* Darker Blue */
+}
+
+/* 3. THE DISABLED STATE (Gray + Blocked Cursor) */
+/* This overrides everything above when the [disabled] attribute is present */
+.btn-resolve:disabled {
+    grid-column: 2;
+    background: #94a3b8 !important; /* Force Gray */
+    color: #f1f5f9 !important;      /* Faded Text */
+    opacity: 0.65;
+    cursor: not-allowed !important; /* The circle with a slash */
+    pointer-events: auto;           /* Required to see the 'not-allowed' cursor */
+}
+
+/*#################################################################*/
+/*the tree dot menu in the action cell*/
+/* The Three Dots Button */
+.col-action .kebab-trigger {
+    margin-right: 5px;
+    grid-column: 3;
+    justify-self: end;
+    background: none;
+    border: none;
+    padding: 5px 5px;
+    cursor: pointer;
+    color: #666;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.kebab-trigger:hover { color: #000; }
+
+/* The Actual Pop-up Menu */
+.kebab-dropdown {
+    position: absolute;
+    top: 40px;
+    right: 5px;
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    box-shadow: 0px 4px 8px rgba(0,0,0,0.1);
+    z-index: 9999;
+    min-width: 130px;
+    border-radius: 4px;
+}
+
+.kebab-dropdown a {
+    display: block;
+    padding: 10px 15px;
+    text-decoration: none;
+    color: #333;
+    font-size: 14px;
+    text-align: left;
+}
+
+.kebab-dropdown a:hover {
+    background-color: #f8f9fa;
+}
+
+.text-danger { color: #dc3545 !important; }
+
+/*#################################################################*/
+/*spinner inside the resolve button*/
+/* 1. Hide the indicator by default (standard HTMX behavior) */
+/* 1. Hide the 'Resolve' span ONLY when htmx is active */
+/* Hide indicator normally */
+/* hide spinner state normally */
+.btn-resolve .spinner-wrapper {
+    display: none;
+}
+
+/* when htmx request starts */
+.btn-resolve.htmx-request .btn-text {
+    display: none;
+}
+
+.btn-resolve.htmx-request .spinner-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* spinner */
+.mini-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/*make not clickable after a click*/
+.btn-resolve.htmx-request {
+    pointer-events: none;
+    opacity: 0.7;
+}
+/*#################################################################*/

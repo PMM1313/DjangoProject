@@ -1,0 +1,126 @@
+<div class="fixture-block">
+
+    <table class="fixture-table">
+        <thead>
+            <tr>
+                <th class="col-match">Match</th>
+                <th class="col-odds">Odds</th>
+                <th class="col-action">Action</th>
+                <th class="col-bet">Bet</th>
+                <th class="col-settings">
+                    <i class="fas fa-cog" title="Settings"></i>
+                </th>
+            </tr>
+        </thead>
+
+        <tbody>
+        {% if grouped_fixtures %}
+            {% for country, leagues in grouped_fixtures.items %}
+                <tr class="country-row">
+                    <td colspan="5">🌍 {{ country.name }}</td>
+                </tr>
+
+                {% for league, fixtures in leagues.items %}
+                    <tr class="league-row">
+                        <td colspan="5">🏆 {{ league.name }}</td>
+                    </tr>
+
+                    {% for f in fixtures %}
+
+                    {% ifchanged f.date.date %}
+
+                    <tr class="date-row" onclick="toggleDateGroup('date-{{ league.id }}-{{ f.date|date:'Ymd' }}')">
+                        <td colspan="5">
+                            <div class="date-row-content">
+                                <span class="toggle-icon" id="icon-date-{{ league.id }}-{{ f.date|date:'Ymd' }}">▼</span>
+                                <span class="date-emoji">📅</span>
+                                <span class="date-text">{{ f.date|date:"l, d F Y" }}</span>
+                            </div>
+                        </td>
+                    </tr>
+
+                    {% endifchanged %}
+
+{#                    <tr class="fixture-row date-{{ league.id }}-{{ f.date|date:'Ymd' }}">#}
+{##}
+{#                        <td class="col-match">#}
+{#                            <div class="match-container">#}
+{##}
+{#                                <div class="fixture-time">#}
+{#                                    {{ f.date|date:"H:i" }}#}
+{#                                </div>#}
+{##}
+{#                                <div class="teams-wrap">#}
+{#                                    <div class="team-home">#}
+{#                                        {{ f.home_team_name }}#}
+{#                                    </div>#}
+{##}
+{#                                    <div class="score-animate-container team-home-score" style="margin-left: 15px; margin-right: 15px">#}
+{#                                            {% if f.home_score is not None %}#}
+{#                                                <span class="score-final">{{ f.home_score }}</span>#}
+{#                                            {% else %}#}
+{#                                                <span class="score-dash">—</span>#}
+{#                                            {% endif %}#}
+{#                                    </div>#}
+{##}
+{#                                    <div class="team-separator">:</div>#}
+                                    {#/* — */#}
+{##}
+{#                                    <div class="team-away-score score-animate-container" style="margin-left: 15px; margin-right: 15px">#}
+{#                                            {% if f.away_score is not None %}#}
+{#                                                <span class="score-final">{{ f.away_score }}</span>#}
+{#                                            {% else %}#}
+{#                                                <span class="score-dash">—</span>#}
+{#                                            {% endif %}#}
+{#                                    </div>#}
+{##}
+{#                                    <div class="team-away">#}
+{#                                        {{ f.away_team_name }}#}
+{#                                    </div>#}
+{#                                </div>#}
+{##}
+{#                            </div>#}
+{#                        </td>#}
+{##}
+{##}
+{#                        {% include "partials/odds_cell.html" %}#}
+{#                        {% include "partials/action_cell.html" %}#}
+{#                        {% include "partials/bet_cell.html" %}#}
+{##}
+{#                        <td class="col-settings">#}
+{#                            <div class="settings-dropdown">#}
+{#                                <button class="btn-settings-square" type="button">#}
+{#                                    <span class="icon-gear">⚙️</span>#}
+{#                                </button>#}
+{##}
+{#                                <div class="dropdown-content">#}
+{#                                    <button data-hx-post="..." data-hx-swap="none">Option 1</button>#}
+{#                                    <button data-hx-post="..." data-hx-swap="none">Option 2</button>#}
+{#                                    <button data-hx-post="..." data-hx-swap="none">Option 3</button>#}
+{#                                    <button#}
+{#                                        class="btn-delete"#}
+{#                                        data-hx-delete="{% url 'delete_fixture' f.id %}"#}
+{#                                        data-hx-target="closest .fixture-row"#}
+{#                                        data-hx-swap="delete swap:700ms"#}
+{#                                        data-hx-confirm="Are you sure you want to delete this fixture?">#}
+{#                                        Delete Fixture#}
+{#                                    </button>#}
+{#                                </div>#}
+{#                            </div>#}
+{#                        </td>#}
+{#                    </tr>#}
+                        {% include "partials/fixture_row.html" %}
+                    {% endfor %}
+                {% endfor %}
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td colspan="5" style="padding: 30px; text-align: center;">
+                    No fixtures found.
+                </td>
+            </tr>
+        {% endif %}
+        </tbody>
+    </table>
+</div>
+

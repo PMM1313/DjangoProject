@@ -1,0 +1,22 @@
+<div class="streaks-dashboard" style="padding: 15px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+    {% for category, teams in all_categories.items %}
+    <div class="streak-section" style="background: #fff; border: 1px solid #edf2f7; border-radius: 8px; padding: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+        <h5 style="margin: 0 0 10px 0; color: #2d3748; font-size: 0.9rem; border-bottom: 2px solid #3182ce; display: inline-block;">
+            {{ category }}
+        </h5>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+            <tbody>
+                {% for t in teams %}
+                <tr style="border-bottom: 1px solid #f7fafc;">
+                    <td style="padding: 6px 0; color: #4a5568;">{{ t.team }}</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: bold; color: #3182ce;">
+                        {{ t.length }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+</div>

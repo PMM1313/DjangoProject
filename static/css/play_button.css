@@ -1,0 +1,45 @@
+.col-action .btn-play {
+    /* Background color (Green) */
+    grid-column: 2;
+    justify-self: center;
+    background-color: #28a745;
+    color: white;
+
+    /* Dimensions and Shape */
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid #218838;
+
+    /* Typography */
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Hover effect */
+.col-action .btn-play:hover:not(:disabled) {
+    background-color: #218838;
+    border-color: #1e7e34;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Active effect: only moves if NOT disabled */
+.col-action .btn-play:active:not(:disabled) {
+    transform: translateY(2px);
+}
+
+/* The Disabled State */
+.col-action .btn-play:disabled {
+
+    background-color: #6c757d !important; /* Forces grey */
+    border-color: #5a6268 !important;
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important; /* Stops the 2px jump */
+    box-shadow: none !important; /* Removes any glow */
+    pointer-events: auto; /* Secondary safety to block HTMX clicks */
+}

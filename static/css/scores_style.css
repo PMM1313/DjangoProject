@@ -1,0 +1,56 @@
+.score-dash {
+    color: #ccc;           /* Light gray color */
+    font-weight: 800;      /* Thin weight (if the font supports it) */
+    font-size: 1.1rem;     /* Slightly smaller makes it look thinner */
+    opacity: 0.7;          /* Fades it slightly into the background */
+    display: flex;
+    /*vertical-align: center;*/
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+/* The box that hides the score while it's 'above' the line */
+.score-animate-container {
+    height: 1.5rem;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 20px;
+}
+
+/* The drop-in animation class (Used for HTMX updates) */
+.score-drop-in {
+    display: inline-block;
+    font-weight: 800;
+    color: #333;
+    /* cubic-bezier gives it that mechanical scoreboard bounce */
+    animation: dropDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.team-separator {
+    color: #6c757d;
+    height: 1.5rem;
+    display: flex;
+    align-items: center; /* Ensures the dashes in the separator are centered */
+    justify-content: center;
+    /*height: 1.5rem;      !* Match the height of your score containers *!*/
+    line-height: 1;
+    font-weight: 400;
+    /*width: 16%;*/
+    white-space: nowrap;
+    /*text-align: center;*/
+    /*color: #999;*/
+    letter-spacing: 2px;
+}
+
+@keyframes dropDown {
+    0% {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

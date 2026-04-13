@@ -1,0 +1,64 @@
+<tr id="fixture-row-{{ f.id }}"
+    class="fixture-row date-{{ f.league.id }}-{{ f.date|date:'Ymd' }}"
+    {#hx-indicator="this"#}
+    style="view-transition-name: fixture-row-{{ f.id }};">
+    <!-- MATCH INFO -->
+    <td class="col-match">
+        <div class="match-container">
+            <div class="fixture-time">{{ f.date|date:"H:i" }}</div>
+            <div class="teams-wrap">
+                <div class="team-home">{{ f.home_team_name }}</div>
+
+                <div class="score-animate-container team-home-score" style="margin:0 15px;">
+                    {% if f.home_score is not None %}
+                        <span class="score-final">{{ f.home_score }}</span>
+                    {% else %}
+                        <span class="score-dash">—</span>
+                    {% endif %}
+                </div>
+
+                <div class="team-separator">:</div>
+
+                <div class="team-away-score score-animate-container" style="margin:0 15px;">
+                    {% if f.away_score is not None %}
+                        <span class="score-final">{{ f.away_score }}</span>
+                    {% else %}
+                        <span class="score-dash">—</span>
+                    {% endif %}
+                </div>
+
+                <div class="team-away">{{ f.away_team_name }}</div>
+            </div>
+        </div>
+    </td>
+
+    <!-- ODDS CELL -->
+    {% include "partials/odds_cell.html" %}
+
+    <!-- ACTION CELL -->
+    {% include "partials/action_cell.html" %}
+
+    <!-- BET CELL -->
+    {% include "partials/bet_cell.html" %}
+
+    <!-- SETTINGS -->
+    <td class="col-settings">
+        <div class="settings-dropdown">
+            <button class="btn-settings-square" type="button">
+                <span class="icon-gear">⚙️</span>
+            </button>
+            <div class="dropdown-content">
+                <button data-hx-post="..." data-hx-swap="none">Option 1</button>
+                <button data-hx-post="..." data-hx-swap="none">Option 2</button>
+                <button data-hx-post="..." data-hx-swap="none">Option 3</button>
+                <button class="btn-delete"
+                        data-hx-delete="{% url 'delete_fixture' f.id %}"
+                        data-hx-target="closest .fixture-row"
+                        data-hx-swap="delete swap:700ms"
+                        data-hx-confirm="Are you sure you want to delete this fixture?">
+                    Delete Fixture
+                </button>
+            </div>
+        </div>
+    </td>
+</tr>

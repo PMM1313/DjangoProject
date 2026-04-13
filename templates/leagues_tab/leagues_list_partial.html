@@ -1,0 +1,39 @@
+{% for league in leagues %}
+<tr class="league-row"
+    data-search="{{ league.name|lower }} {{ league.id }}"
+    x-show="search === '' || $el.dataset.search.includes(search.toLowerCase())"
+    style="border-bottom: 1px solid #f1f1f1;">
+    <td style="padding: 12px;">
+        <div style="font-weight: 600;">{{ league.name }} ({{ league.id }})</div>
+        <div style="font-size: 0.7rem; color: #999;">ID: #{{ league.id }}</div>
+    </td>
+    <td style="padding: 12px;">{{ league.country.name }}</td>
+    <td style="padding: 12px;">
+        {% if league.in_season %}
+            <span style="color: #2fb344; font-size: 0.8rem;">● Active</span>
+        {% else %}
+            <span style="color: #aeaeae; font-size: 0.8rem;">○ Off-season</span>
+        {% endif %}
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="3" style="padding: 40px; text-align: center; color: #94a3b8;">
+        No leagues exist in your database yet.
+    </td>
+</tr>
+{% endfor %}
+
+<tr x-show="search !== '' && $el.parentElement.querySelectorAll('.league-row:not([style*=\'display: none\'])').length === 0"
+    x-transition.opacity>
+    <td colspan="3" style="padding: 40px; text-align: center; background: #fff;">
+        <div style="color: #94a3b8; font-size: 2rem; margin-bottom: 10px;">🔍</div>
+        <div style="font-weight: 600; color: #475569;">
+            No leagues found matching "<span x-text="search" style="color: #007bff;"></span>"
+        </div>
+        <button @click="search = ''"
+                style="margin-top: 15px; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; color: #475569;">
+            Clear Search
+        </button>
+    </td>
+</tr>

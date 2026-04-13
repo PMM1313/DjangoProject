@@ -1,0 +1,62 @@
+/* Layout for the header div */
+.fixtures-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+/* Base button style */
+.btn-db-sync {
+    background-color: #2c3e50;
+    color: white;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s ease;
+    pointer-events: auto;
+    opacity: 1;
+}
+
+.btn-db-sync:hover {
+    background-color: #34495e;
+}
+
+/* The CSS Spinner */
+.db-loader {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #ffffff;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    display: none; /* Default state */
+    animation: spin 0.8s linear infinite;
+}
+
+/* --- HTMX STATES --- */
+
+/* 1. Show spinner when loading */
+.btn-db-sync.htmx-request .db-loader {
+    display: inline-block !important;
+}
+
+/* 2. Hide static icon when loading */
+.btn-db-sync.htmx-request .static-icon {
+    display: none;
+}
+
+/* 3. Disable button visually when loading */
+.btn-db-sync.htmx-request {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

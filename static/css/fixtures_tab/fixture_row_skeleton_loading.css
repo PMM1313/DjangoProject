@@ -1,0 +1,43 @@
+/* row in loading state */
+.fixture-row.row-loading {
+    position: relative;
+}
+
+/* hide real content while loading */
+.fixture-row.row-loading td > * {
+    visibility: hidden;
+}
+
+/* skeleton blocks */
+.fixture-row.row-loading td::before {
+    content: "";
+    display: block;
+    /*height: 53px;*/
+    border-radius: 4px;
+    background: linear-gradient(
+        90deg,
+        #2a2a2a 25%,
+        #3a3a3a 37%,
+        #2a2a2a 63%
+    );
+    background-size: 400% 100%;
+    animation: skeleton-loading 1.2s ease infinite;
+}
+
+/* different widths per column */
+.col-match::before { width: 70%; }
+.col-odds::before { width: 40px; }
+.col-action::before { width: 110px; }
+.col-bet::before { width: 60px; }
+
+/* animation */
+@keyframes skeleton-loading {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+    animation-duration: 0.35s;
+    animation-timing-function: ease;
+}
