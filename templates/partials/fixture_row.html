@@ -32,6 +32,7 @@
         </div>
     </td>
 
+
     <!-- ODDS CELL -->
     {% include "partials/odds_cell.html" %}
 
@@ -44,11 +45,19 @@
     <!-- SETTINGS -->
     <td class="col-settings">
         <div class="settings-dropdown">
+
             <button class="btn-settings-square" type="button">
                 <span class="icon-gear">⚙️</span>
             </button>
+
             <div class="dropdown-content">
-                <button data-hx-post="..." data-hx-swap="none">Option 1</button>
+
+                <button hx-get="{% url 'settle_fixture_manual' f.fixture_id %}"
+                        hx-target="#settle-container-{{ f.id }}"
+                        hx-swap="innerHTML">
+                    Settle Manually
+                </button>
+
                 <button data-hx-post="..." data-hx-swap="none">Option 2</button>
                 <button data-hx-post="..." data-hx-swap="none">Option 3</button>
                 <button class="btn-delete"
@@ -61,4 +70,9 @@
             </div>
         </div>
     </td>
+</tr>
+
+<tr id="settle-row-{{ f.id }}" class="settle-form-row">
+    <td colspan="5" id="settle-container-{{ f.id }}" style="padding:0; border:none;">
+        </td>
 </tr>

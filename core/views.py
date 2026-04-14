@@ -21,7 +21,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
 
-from .forms import ManualFixtureForm
+from .forms import ManualFixtureForm, SettleFixtureForm
 from .models import Team, Fixture, ForRecover, League, Country, TrackingValue, RecoverFixture
 from .serializers import TeamSerializer
 
@@ -200,11 +200,27 @@ def fetch_and_save_fixtures(request):
             'grouped_fixtures': grouped_data
         })
 
-        return HttpResponse(html)
+        response = HttpResponse(html)
+        # We manually add your custom trigger to the HTML response
+        # so the toast pops up along with the new table
+        response["HX-Trigger"] = json.dumps({
+            "showToast": {
+                "text": "Fixtures updated successfully!",
+                "level": "success"
+            }
+        })
+        return response
 
     except Exception as e:
-        print(f"❌ Server Error: {str(e)}")
-        return HttpResponse(f"Server Error: {str(e)}", status=500)
+
+        # ERROR: Use your specific toast_response helper
+        # We pass the error message and the 'error' level
+
+        return toast_response(
+            message=str(e),
+            level="error",
+            status_code=200  # We keep 200 so HTMX processes the trigger
+        )
 
 
 @login_required
@@ -262,6 +278,37 @@ def add_manual_fixture(request):
             return response
 
     return render(request, 'partials/manual_fixture_form.html', {'form': ManualFixtureForm()})
+
+
+@login_required
+@transaction.atomic
+def settle_fixture_manual(request, fixture_id):
+    # Find the fixture in your DB
+    fixture = get_object_or_404(Fixture, fixture_id=fixture_id)
+
+    if request.method == "POST":
+        form = SettleFixtureForm(request.POST)
+        if form.is_valid():
+            fixture.home_score = form.cleaned_data['home_score']
+            fixture.away_score = form.cleaned_data['away_score']
+            fixture.status = form.cleaned_data['status']
+            fixture.is_played = True if fixture.status == 'Match Finished' else False
+            fixture.save()
+
+            # Return success toast and refresh table
+            response = toast_response(f"Settled: {fixture.home_team_name} vs {fixture.away_team_name}", level="success")
+
+            # Trigger table refresh
+            triggers = json.loads(response["HX-Trigger"])
+            triggers["refreshFixtures"] = True
+            response["HX-Trigger"] = json.dumps(triggers)
+            return response
+
+    # GET request returns the small form partial
+    return render(request, 'partials/settle_fixture_form.html', {
+        'form': SettleFixtureForm(initial={'status': 'Match Finished'}),
+        'fixture': fixture
+    })
 
 
 @login_required  # Ensures only logged-in users can delete

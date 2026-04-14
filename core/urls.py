@@ -25,6 +25,7 @@ urlpatterns = [
     path('fixture/delete/<int:pk>/', views.delete_fixture, name='delete_fixture'),
     path('fixture/play/<int:pk>/', views.play_match, name='play_match'),
     path('fixture/resolve-match/<int:pk>/', views.resolve_match_view, name='resolve_match'),
+    path('fixture/settle/<int:fixture_id>/', views.settle_fixture_manual, name='settle_fixture_manual'),
     path('fixture/result-and-status/', views.results_and_statuses_view, name='fetch_scores_and_statuses'),
     path('for_distribution/', views.for_distribution_view, name='for_distribution'),
     path('alpine-playground/', views.alpine_playground, name='alpine_playground'),

@@ -37,8 +37,22 @@ class FixtureService:
         if response.status_code != 200:
             raise Exception(f"API request failed: {response.status_code} {response.text}")
 
-        response.raise_for_status()
-        return response.json()["response"]
+        data = response.json()
+
+        # Check for API-specific errors (like "Plan restricted")
+        if data.get("errors"):
+            # The errors field can be a list or a dict, we extract the messages
+            error_msgs = data["errors"]
+            if isinstance(error_msgs, dict):
+                messages = [f"{v}" for v in data["errors"].values()]
+                error_msg = " | ".join(messages)
+            else:
+                error_msg = str(data["errors"])
+
+            # This will be caught by the 'except' block in your view
+            raise Exception(f"API Error: {error_msg}")
+
+        return data["response"]
 
     # ---------- CONDITIONS ----------
     def should_import(self, item: dict) -> bool:

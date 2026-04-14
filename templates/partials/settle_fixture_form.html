@@ -1,0 +1,35 @@
+<div class="settle-card m-0 p-3 bg-dark text-white border-top border-bottom w-100" style="min-height: 80px;">
+    <form hx-post="{% url 'settle_fixture_manual' fixture.fixture_id %}" hx-swap="none" class="w-100">
+        {% csrf_token %}
+        <div class="d-flex align-items-center justify-content-between w-100 gap-4">
+
+            <div style="flex: 0 0 250px;">
+                <span class="x-small d-block text-secondary">Settling Match</span>
+                <span class="fw-bold text-truncate d-block">{{ fixture.home_team_name }} vs {{ fixture.away_team_name }}</span>
+            </div>
+
+            <div class="d-flex align-items-center justify-content-center gap-3 flex-grow-1">
+                <div>
+                    <label class="x-small d-block mb-1 text-center">Home</label>
+                    {{ form.home_score }}
+                </div>
+                <div class="fw-bold mt-3 mx-1">:</div>
+                <div>
+                    <label class="x-small d-block mb-1 text-center">Away</label>
+                    {{ form.away_score }}
+                </div>
+                <div class="ms-4" style="flex: 0 1 250px;">
+                    <label class="x-small d-block mb-1">Status</label>
+                    {{ form.status }}
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 flex-shrink-0" style="flex: 0 0 180px;">
+                <button type="submit" class="btn btn-success w-100">Save</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="this.closest('td').innerHTML=''">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </form>
+</div>

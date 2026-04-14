@@ -26,3 +26,12 @@ class ManualFixtureForm(forms.Form):
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}))
     start_time = forms.TimeField(widget=forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}))
     season = forms.IntegerField(initial=2025)
+
+
+class SettleFixtureForm(forms.Form):
+    home_score = forms.IntegerField(min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+    away_score = forms.IntegerField(min_value=0, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+    status = forms.ChoiceField(
+        choices=[('Match Finished', 'Match Finished'), ('Postponed', 'Postponed'), ('Cancelled', 'Cancelled')],
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
