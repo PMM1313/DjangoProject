@@ -374,18 +374,49 @@ def resolve_match_view(request, pk):
 
 
 @login_required
-@transaction.atomic
 def results_and_statuses_view(request):
     # .1 Fetch scores and statuses
     service = FixtureService()
-    service.fetch_scores_and_statuses()
+
+    # We don't want a single day's error to show a 500 page
+    try:
+        # Run the fetch and get the summary report
+        summary = service.fetch_scores_and_statuses()
+
+    except Exception as e:
+        # This would only trigger if the loop itself fails (not the API calls)
+        print(f"Critical Sync Error: {e}")
+
+    # Build the Toast Message
+    if not summary['error_dates']:
+        msg = f"Successfully updated {summary['updated_count']} fixtures."
+        lvl = "success"
+    elif not summary['success_dates']:
+        msg = f"API Error: Could not fetch any dates due to plan limits."
+        lvl = "error"
+    else:
+        # Mixed results
+        msg = f"Updated {summary['updated_count']} fixtures. (Errors on: {', '.join(summary['error_dates'])})"
+        lvl = "warning"
+
     # .2 Get data from DB
     data = service.get_grouped_fixtures()
 
-    # .3 Return data
-    return render(request, 'includes/_fixture_table.html', {
+    # Generate the response using your helper
+    response = render(request, 'includes/_fixture_table.html', {
         'grouped_fixtures': data
     })
+
+    # Manually attach the HX-Trigger since you are returning a rendered template,
+    # but still using your toast logic structure:
+    response["HX-Trigger"] = json.dumps({
+        "showToast": {
+            "text": msg,
+            "level": lvl
+        }
+    })
+
+    return response
 
 
 @login_required

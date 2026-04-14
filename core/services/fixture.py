@@ -416,12 +416,23 @@ class FixtureService:
         fixtures_data = []
         updated_fixtures = []
 
+        # Tracking for Toast Summary
+        success_dates = []
+        error_dates = []
+
         # 4. The Fetching Loop
         while current_day <= end_date:
-            # isoformat() produces 'YYYY-MM-DD'
-
-            fixtures = FixtureService.fetch_from_api(current_day.isoformat())
-            fixtures_data.extend(fixtures)
+            day_str = current_day.isoformat()
+            try:
+                # Attempt to fetch for the specific day
+                fixtures = FixtureService.fetch_from_api(day_str)
+                fixtures_data.extend(fixtures)
+                success_dates.append(day_str)
+                print(f"✅ Successfully fetched {len(fixtures)} fixtures for {current_day}")
+            except Exception as e:
+                error_dates.append(day_str)
+                # If API plan limits hit, we just skip this day and continue
+                print(f"⚠️ Error !!! .... skipping {current_day}: {str(e)}")
 
             current_day += timedelta(days=1)
 
@@ -434,20 +445,31 @@ class FixtureService:
             a_id = item["teams"]["away"]["id"]
 
             if (h_id, a_id) in existing_fixtures:
-                Fixture.objects.filter(home_id=h_id, away_id=a_id).update(
-                    home_score=item["score"]["fulltime"]["home"],
-                    away_score=item["score"]["fulltime"]["away"],
-                    status=item["fixture"]["status"]["long"],
-                    date=datetime.fromisoformat(item["fixture"]["date"]),
-                )
+                # 1. Fetch the specific instance
+                obj = Fixture.objects.filter(home_id=h_id, away_id=a_id).first()
 
-                fixtures_updated += 1
-                updated_fixtures.extend(item)
-                continue
+                if obj:
+                    # 2. Update the attributes
+                    obj.home_score = item["score"]["fulltime"]["home"]
+                    obj.away_score = item["score"]["fulltime"]["away"]
+                    obj.status = item["fixture"]["status"]["long"]
+                    obj.date = datetime.fromisoformat(item["fixture"]["date"])
+
+                    # 3. Save it (this triggers signals and model logic)
+                    obj.save()
+
+                    fixtures_updated += 1
+                    updated_fixtures.append(item)  # Use .append() not .extend() for a single item
+                    continue
 
         print(f"Scores and Statuses updated ! Fixtures updated: {fixtures_updated}")
         print(f"Sync complete. Total days fetched: {(end_date - start_date).days + 1}")
-        return updated_fixtures
+
+        return {
+            "updated_count": fixtures_updated,
+            "success_dates": success_dates,
+            "error_dates": error_dates
+        }
 
     @staticmethod
     def generate_fixture_id(date_obj, home_id: int, away_id: int, season: int) -> int:
