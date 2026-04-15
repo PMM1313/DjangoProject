@@ -1,19 +1,78 @@
+<style>
+    /* 1. Crucial: Allows the row to show shadows properly */
+    table {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .league-row {
+        cursor: pointer;
+        transition: all 0.2s;
+        user-select: none;
+        position: relative; /* Helps with shadow rendering */
+    }
+
+    /* 2. Apply the shadow to the CELLS, not just the row */
+    .selected-row td {
+        background-color: #d1e8ff !important; /* Forces cells to match row color */
+    }
+
+    /* 3. The blue indicator fix */
+    .selected-row td:first-child {
+        box-shadow: inset 4px 0 0 0 #007bff !important;
+    }
+    .selection-cell {
+        display: flex;
+        align-items: center;   /* Vertical centering */
+        justify-content: center; /* Horizontal centering */
+        height: 100%;          /* Ensure it fills the row height */
+        padding: 12px 0;       /* Match your other cells' padding */
+        min-width: 40px;       /* Give it enough room to look centered */
+    }
+
+</style>
+
 {% for league in leagues %}
 <tr class="league-row"
-    data-search="{{ league.name|lower }} {{ league.id }}"
+    x-data="{ selected: false }"
     x-show="search === '' || $el.dataset.search.includes(search.toLowerCase())"
-    style="border-bottom: 1px solid #f1f1f1;">
+    data-search="{{ league.name|lower }} {{ league.id }}"
+    @click="selected = !selected; $refs.checkbox.checked = selected"
+    :class="selected ? 'selected-row' : ''">
+
+
+
     <td style="padding: 12px;">
-        <div style="font-weight: 600;">{{ league.name }} ({{ league.id }})</div>
+        <div style="font-weight: 600;">{{ league.name }}</div>
         <div style="font-size: 0.7rem; color: #999;">ID: #{{ league.id }}</div>
     </td>
+
     <td style="padding: 12px;">{{ league.country.name }}</td>
+
     <td style="padding: 12px;">
         {% if league.in_season %}
             <span style="color: #2fb344; font-size: 0.8rem;">● Active</span>
         {% else %}
             <span style="color: #aeaeae; font-size: 0.8rem;">○ Off-season</span>
         {% endif %}
+    </td>
+
+    <td style="padding: 12px;">
+        {% if league.is_used %}
+            <span style="color: #2fb344; font-size: 0.8rem;">Yes</span>
+        {% else %}
+            <span style="color: #aeaeae; font-size: 0.8rem;">No</span>
+        {% endif %}
+    </td>
+
+    <td style="padding-left: 12px;">
+        <div class="selection-cell">
+            <input type="checkbox"
+                   name="league_ids"
+                   value="{{ league.id }}"
+                   x-ref="checkbox"
+                   @click.stop>
+        </div>
     </td>
 </tr>
 {% empty %}

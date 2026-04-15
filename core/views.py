@@ -598,13 +598,9 @@ def leagues_tab_page(request):
 
 @login_required
 def leagues_list_partial(request):
-    """Returns ONLY the table rows. Used for search or refreshes."""
-    query = request.GET.get('q', '')
-
-    # Filter leagues by name if search query exists
-    leagues = League.objects.select_related('country').filter(
-        name__icontains=query
-    ).order_by('name')
+    """Returns ONLY the table rows. Clean and simple."""
+    # We ignore 'q' because Alpine.js handles filtering on the frontend
+    leagues = League.objects.select_related('country').all().order_by('name')
 
     return render(request, 'leagues_tab/leagues_list_partial.html', {'leagues': leagues})
 
@@ -631,6 +627,19 @@ def search_external_leagues(request):
         })
     except Exception as e:
         return HttpResponse(f"<div style='color:red;'>API Error: {str(e)}</div>")
+
+
+@login_required
+@transaction.atomic
+def change_league_used_or_not(request):
+    selected_ids = request.POST.getlist('league_ids')
+
+    print(selected_ids)
+
+    # Example: toggle the status for all selected leagues
+    # leagues = League.objects.filter(id__in=selected_ids)
+    # ... your logic ...
+    return leagues_list_partial(request)
 
 
 @login_required
