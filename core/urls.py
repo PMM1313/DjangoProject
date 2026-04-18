@@ -42,6 +42,9 @@ urlpatterns = [
 
     # adding manual plus to for recover entry
     path('update_recovery_amount_manual_plus/', views.update_recovery_amount, name='update_recovery_amount_manual_plus'),
+
+    # extension data
+    path('api/data/', views.receive_data, name='receive_data'),
 ]
 #     # List all teams / Create a new team
 #     path("teams/", TeamListCreateView.as_view(), name="team-list-create"),

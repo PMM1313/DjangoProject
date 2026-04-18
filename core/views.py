@@ -6,6 +6,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from django.contrib import messages
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
@@ -783,3 +784,60 @@ def update_recovery_amount(request):
             return toast_response(f"System Error: {str(e)}", "error", 500)
 
     return toast_response("Invalid Method", "error", 405)
+
+
+@csrf_exempt
+def receive_data(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            matches = data.get('matches', [])
+
+            # Process your matches here
+            # e.g., Match.objects.create(home_team=matches[0]['match'], ...)
+            print("-" * 40)
+            print(f"Received {len(matches)} matches")
+            print("-" * 40)
+            for entry in matches:
+                # 1. Basic Info
+                date = entry.get('date', 'N/A')
+                country = entry.get('country', 'N/A')
+                league = entry.get('league', 'N/A')
+                time = entry.get('time', 'N/A')
+                home_team = entry.get('homeTeam', 'N/A')
+                away_team = entry.get('awayTeam', 'N/A')
+
+                # 2. Team Logic (Splitting the "Match" string)
+                # full_match = entry.get('match', 'Unknown vs Unknown')
+                # if " vs " in full_match:
+                #     home, away = full_match.split(" vs ", 1)
+                # else:
+                #     home, away = full_match, "Unknown"
+
+                # 3. Odds Dictionary
+                odds = entry.get('odds', {})
+                h_odd = odds.get('home', '-')
+                d_odd = odds.get('draw', '-')
+                a_odd = odds.get('away', '-')
+
+                # 4. Clean Print Output
+                # print(f"\n[{date} {time}]")
+                # print(f"🌍 {country} | 🏆 {league}")
+                # print(f"🏠 {home_team.ljust(20)} {h_odd}")
+                # print(f"🤝 {'DRAW'.ljust(20)} {d_odd}")
+                # print(f"🚌 {away_team.ljust(20)} {a_odd}")
+                print(f"Date: {date.ljust(10)} | "
+                      f"Time: {time.ljust(10)} | "
+                      f"Country: {country.ljust(10)} | "
+                      f"League: {league.ljust(20)} | "
+                      f"{home_team.ljust(20)} | "
+                      f"{away_team.ljust(20)} | "
+                      f"Draw odd: {d_odd.ljust(10)}"
+                      )
+                print("-" * 100)
+
+            return JsonResponse({"status": "success", "message": "Data saved"}, status=200)
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
+    return JsonResponse({"status": "error", "message": "Only POST allowed"}, status=405)

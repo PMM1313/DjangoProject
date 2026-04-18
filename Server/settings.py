@@ -96,6 +96,7 @@ INSTALLED_APPS = [
     'axes',
     'constance',
     'constance.backends.database',
+    'corsheaders',
 ]
 
 # Tell Constance to store data in your Postgres DB
@@ -117,6 +118,7 @@ MIDDLEWARE = [
     'axes.middleware.AxesMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -129,6 +131,10 @@ AUTHENTICATION_BACKENDS = [
     'axes.backends.AxesStandaloneBackend',
     # Default Django authentication
     'django.contrib.auth.backends.ModelBackend',
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "chrome-extension://cknppenmojidgomhkfnjdhnaaimafaki",
 ]
 
 ROOT_URLCONF = 'Server.urls'
