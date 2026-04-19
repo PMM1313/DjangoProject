@@ -246,7 +246,7 @@ def add_manual_fixture(request):
                 date_obj=data['date'],
                 home_id=h_team.id,
                 away_id=a_team.id,
-                season=data['season']
+                year=None
             )
 
             # 3. Create the Fixture

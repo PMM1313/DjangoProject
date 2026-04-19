@@ -1,5 +1,6 @@
 from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP, ROUND_UP
+from typing import Optional
 
 import requests
 from django.db import transaction
@@ -94,6 +95,8 @@ class FixtureService:
             league_id = item['league']['id']
             season = item["league"]["season"]
 
+            year_as_int = int(item['date'][:4])
+
             # 2. Check if at least one team is tracked
             is_h_tracked = h_id in tracked_team_ids
             is_a_tracked = a_id in tracked_team_ids
@@ -159,7 +162,7 @@ class FixtureService:
 
             # print(f"step 4")
             # 5. Create Fixture using your new schema
-            fixture_id = self.generate_fixture_id(fixture_date_and_start_time, h_id, a_id, season,)
+            fixture_id = self.generate_fixture_id(fixture_date_and_start_time, h_id, a_id, year_as_int,)
             fixture = Fixture.objects.create(
                 api_sport_id=item["fixture"]['id'],
                 fixture_id=fixture_id,
@@ -472,14 +475,27 @@ class FixtureService:
         }
 
     @staticmethod
-    def generate_fixture_id(date_obj, home_id: int, away_id: int, season: int) -> int:
+    def generate_fixture_id(date_obj, home_id: int, away_id: int, year: Optional[int]) -> int:
         # season (4) + month (2) + day (2) + league (4) + home (5) + away (5)
-        season_str = str(season).zfill(4)
+
+        year_str = '0000'
+
+        if year is None:
+            my_date = date.today()
+
+            # Option A: Using .year and str()
+            year_str = my_date.strftime('%Y')
+
+        elif year:
+            year_str = str(year)
+
+        # Option B: Using .strftime() (Cleanest for formatting)
+
         month_str = str(date_obj.month).zfill(2)
         day_str = str(date_obj.day).zfill(2)
         # league_str = str(league_id).zfill(4)
         home_str = str(home_id).zfill(5)
         away_str = str(away_id).zfill(5)
 
-        fixture_id_str = f"{season_str}{month_str}{day_str}{home_str}{away_str}"
+        fixture_id_str = f"{year_str}{month_str}{day_str}{home_str}{away_str}"
         return int(fixture_id_str)
