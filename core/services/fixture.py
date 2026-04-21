@@ -95,7 +95,7 @@ class FixtureService:
             league_id = item['league']['id']
             season = item["league"]["season"]
 
-            year_as_int = int(item['date'][:4])
+            year_as_int = int(item['fixture']['date'][:4])
 
             # 2. Check if at least one team is tracked
             is_h_tracked = h_id in tracked_team_ids

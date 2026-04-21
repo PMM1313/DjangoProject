@@ -637,10 +637,28 @@ def change_league_used_or_not(request):
 
     print(selected_ids)
 
-    # Example: toggle the status for all selected leagues
-    # leagues = League.objects.filter(id__in=selected_ids)
-    # ... your logic ...
-    return leagues_list_partial(request)
+    # Guard clause: if list is empty, just return the partial
+    if not selected_ids:
+        return leagues_list_partial(request)
+
+    # Use select_for_update() if you expect multiple admins
+    # to be clicking this at the exact same time
+    leagues = League.objects.filter(id__in=selected_ids).select_for_update()
+
+    for league in leagues:
+        league.is_used = not league.is_used
+        league.save()
+
+    # Inside the view after the loop
+    count = len(selected_ids)
+    response = leagues_list_partial(request)
+    response["HX-Trigger"] = json.dumps({
+        "showToast": {
+            "text": f"Successfully toggled {count} leagues.",
+            "level": "success"
+        }
+    })
+    return response
 
 
 @login_required
