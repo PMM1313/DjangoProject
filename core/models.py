@@ -2,6 +2,8 @@ from decimal import Decimal
 
 
 from django.db import models
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 
 from django.db.models import Sum, Q, DecimalField
 from django.db.models.functions import Coalesce
@@ -398,4 +400,43 @@ class RecoverFixture(models.Model):
             return fixture
         # If not found, look in Archived
         return ArchivedFixture.objects.filter(fixture_id=self.fixture_id).first()
+
+
+class ExternalMapping(models.Model):
+    # 1. The External Data
+    external_name = models.CharField(
+        max_length=100,
+        help_text="The name exactly as it comes from the API"
+    )
+
+    # 2. The Generic Link to your internal models
+    # This allows this row to point to a Team, a League, OR a Country
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    internal_object = GenericForeignKey('content_type', 'object_id')
+
+    # 3. Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Prevents duplicate mappings for the same external name within the same model type
+        unique_together = ('external_name', 'content_type')
+
+    def __str__(self):
+        return f"{self.external_name} -> {self.internal_object}"
+
+
+class PendingImport(models.Model):
+    # Helpful to know where/when it came from
+    source = models.CharField(max_length=50, default="Chrome Extension")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Store the entire raw JSON payload here
+    data = models.JSONField()
+
+    # Use this to keep track of processed batches
+    is_processed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Import from {self.source} at {self.created_at}. Processed: {self.is_processed}"
 

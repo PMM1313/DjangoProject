@@ -809,7 +809,17 @@ def receive_data(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
+            source = data.get('source', 'unknown')
             matches = data.get('matches', [])
+
+            # Check validity of data
+            # Check if the keys exist and matches is a list with at least one item
+            if not source or not isinstance(matches, list):
+                print("❌ Validation Failed: Missing source or no matches list.")
+                return JsonResponse({
+                    "status": "error",
+                    "message": "Invalid data structure: 'source' and a non-empty 'matches' list are required."
+                }, status=400)
 
             # Process your matches here
             # e.g., Match.objects.create(home_team=matches[0]['match'], ...)
@@ -824,13 +834,6 @@ def receive_data(request):
                 time = entry.get('time', 'N/A')
                 home_team = entry.get('homeTeam', 'N/A')
                 away_team = entry.get('awayTeam', 'N/A')
-
-                # 2. Team Logic (Splitting the "Match" string)
-                # full_match = entry.get('match', 'Unknown vs Unknown')
-                # if " vs " in full_match:
-                #     home, away = full_match.split(" vs ", 1)
-                # else:
-                #     home, away = full_match, "Unknown"
 
                 # 3. Odds Dictionary
                 odds = entry.get('odds', {})
