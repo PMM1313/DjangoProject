@@ -34,6 +34,9 @@ urlpatterns = [
     # 1. The Main Tab Wrapper (Loads the stats, search bar, and initial table)
     path('leagues-tab/', views.leagues_tab_page, name='leagues_tab_page'),
 
+    path('imports-tab/', views.imports_tab_page, name='imports_tab_page'),
+    # path('save-mappings/', views.save_mappings, name='save_single_mapping'),
+
     # 2. The Partial Update (Only returns <tr> tags for searching/filtering)
     path('leagues-list-partial/', views.leagues_list_partial, name='leagues_list_partial'),
     path('search-external-leagues/', views.search_external_leagues, name='search_external_leagues'),

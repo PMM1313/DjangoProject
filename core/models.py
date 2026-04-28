@@ -429,6 +429,7 @@ class ExternalMapping(models.Model):
 class PendingImport(models.Model):
     # Helpful to know where/when it came from
     source = models.CharField(max_length=50, default="Chrome Extension")
+    scraped_from = models.CharField(max_length=30, default='Not provided')
     created_at = models.DateTimeField(auto_now_add=True)
 
     # Store the entire raw JSON payload here

@@ -1,0 +1,48 @@
+{% for country in view_data %}
+    <div class="country-block mb-4 border p-3">
+        <h4>{{ country.external_name }} 
+            {% if country.internal_obj %}({{ country.internal_obj.name }}){% endif %}
+        </h4>
+
+        {% for league in country.leagues %}
+            <div class="league-block ms-4 mt-2">
+                <h5 class="text-secondary">
+                    {{ league.external_name }}
+                    {% if league.internal_obj %}
+                        <span class="badge bg-success">Linked: {{ league.internal_obj.name }}</span>
+                    {% else %}
+                        <span class="badge bg-danger">Map League Needed</span>
+                    {% endif %}
+                </h5>
+
+                <table class="table table-sm">
+                    {% for match_wrap in league.matches %}
+                    <tr class="{% if not match_wrap.is_ready %}table-warning{% endif %}">
+                        <td>{{ match_wrap.scraped.time }}</td>
+
+                        <td>
+                            {{ match_wrap.scraped.homeTeam }}
+                            {% if match_wrap.home_obj %}
+                                <i class="fas fa-link text-success"></i> <small>({{ match_wrap.home_obj.name }})</small>
+                            {% else %}
+                                <span class="text-danger">???</span>
+                            {% endif %}
+                        </td>
+
+                        <td>vs</td>
+
+                        <td>
+                            {{ match_wrap.scraped.awayTeam }}
+                            {% if match_wrap.away_obj %}
+                                <i class="fas fa-link text-success"></i> <small>({{ match_wrap.away_obj.name }})</small>
+                            {% else %}
+                                <span class="text-danger">???</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        {% endfor %}
+    </div>
+{% endfor %}

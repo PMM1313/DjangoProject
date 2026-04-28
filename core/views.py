@@ -1,4 +1,7 @@
 import json
+import traceback
+
+from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from _decimal import InvalidOperation
 from collections import defaultdict
@@ -23,7 +26,8 @@ from rest_framework.response import Response
 from rest_framework import status, generics
 
 from .forms import ManualFixtureForm, SettleFixtureForm
-from .models import Team, Fixture, ForRecover, League, Country, TrackingValue, RecoverFixture
+from .models import Team, Fixture, ForRecover, League, Country, TrackingValue, RecoverFixture, PendingImport, \
+    ExternalMapping
 from .serializers import TeamSerializer
 
 # -------------------------------
@@ -598,6 +602,90 @@ def leagues_tab_page(request):
 
 
 @login_required
+def imports_tab_page(request):
+    """Loads the entire layout for the Imports tab."""
+
+    pending = PendingImport.objects.filter(is_processed=False).order_by('-created_at').first()
+
+    if not pending:
+        return HttpResponse("<p class='p-3'>No pending imports found.</p>")
+
+    # The new structure: { "England": { "Premier League": [...] } }
+    all_data = pending.data.get('matches', {})
+    view_data = []
+
+    # Get ContentTypes once to avoid repeated DB hits in the loop
+    team_type = ContentType.objects.get_for_model(Team)
+    league_type = ContentType.objects.get_for_model(League)
+    country_type = ContentType.objects.get_for_model(Country)
+
+    # TRIPLE LOOP: Country -> League -> Match List
+    for c_name, leagues_dict in all_data.items():
+
+        # Process Country mapping
+        mapping = ExternalMapping.objects.filter(external_name=c_name, content_type=country_type).first()
+        internal_country = mapping.internal_object if mapping else Country.objects.filter(name__iexact=c_name).first()
+        league_wrappers = []
+
+        for l_name, match_list in leagues_dict.items():
+
+            # 2. Process League mapping
+            mapping = ExternalMapping.objects.filter(external_name=l_name, content_type=league_type).first()
+            internal_league = mapping.internal_object if mapping else League.objects.filter(name__iexact=c_name).first()
+            match_wrappers = []
+
+            # 3. Process Teams from Match List
+            for match in match_list:
+                t_home_ext = match.get('homeTeam')
+                t_away_ext = match.get('awayTeam')
+
+                # Resolve Home Team
+                m_home = ExternalMapping.objects.filter(external_name=t_home_ext, content_type=team_type).first()
+                home_obj = m_home.internal_object if m_home else Team.objects.filter(name__iexact=t_home_ext).first()
+
+                # Resolve Away Team
+                m_away = ExternalMapping.objects.filter(external_name=t_away_ext, content_type=team_type).first()
+                away_obj = m_away.internal_object if m_away else Team.objects.filter(name__iexact=t_away_ext).first()
+
+                # Create Match Wrapper
+                match_wrappers.append({
+                    'scraped': match,
+                    'home_obj': home_obj,
+                    'away_obj': away_obj,
+                    'is_ready': home_obj is not None and away_obj is not None
+                })
+
+            # Create the League Wrapper
+            league_wrappers.append({
+                'external_name': l_name,
+                'internal_obj': internal_league,
+                'matches': match_wrappers, # List of match wrappers,
+                'needs_mapping': internal_league is None
+            })
+
+        country_wrapper = {
+            'external_name': c_name,
+            'internal_obj': internal_country,  # The Model Instance
+            'leagues': league_wrappers,  # This is now a LIST of dicts, not a raw dict
+            'needs_mapping': internal_country is None
+        }
+
+        view_data.append(country_wrapper)
+
+    context = {
+        'pending_id': pending.id,
+        'source': pending.source,
+        'scraped_from': pending.scraped_from,
+        'view_data': view_data,
+        'all_teams': Team.objects.all().order_by('name'),
+        'all_leagues': League.objects.all().order_by('name'),
+        'all_countries': Country.objects.all().order_by('name'),
+    }
+
+    return render(request, 'imports_tab/imports_tab_page.html', context)
+
+
+@login_required
 def leagues_list_partial(request):
     """Returns ONLY the table rows. Clean and simple."""
     # We ignore 'q' because Alpine.js handles filtering on the frontend
@@ -806,59 +894,86 @@ def update_recovery_amount(request):
 
 @csrf_exempt
 def receive_data(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            source = data.get('source', 'unknown')
-            matches = data.get('matches', [])
+    if request.method != 'POST':
+        return JsonResponse({"status": "error", "message": "Only POST allowed"}, status=405)
 
-            # Check validity of data
-            # Check if the keys exist and matches is a list with at least one item
-            if not source or not isinstance(matches, list):
-                print("❌ Validation Failed: Missing source or no matches list.")
-                return JsonResponse({
-                    "status": "error",
-                    "message": "Invalid data structure: 'source' and a non-empty 'matches' list are required."
-                }, status=400)
+    try:
+        data = json.loads(request.body)
+        source = data.get('source', 'unknown')
+        # In the new structure, matches is a DICT (Country > League > List)
+        all_data = data.get('matches', {})
 
-            # Process your matches here
-            # e.g., Match.objects.create(home_team=matches[0]['match'], ...)
-            print("-" * 40)
-            print(f"Received {len(matches)} matches")
-            print("-" * 40)
-            for entry in matches:
-                # 1. Basic Info
-                date = entry.get('date', 'N/A')
-                country = entry.get('country', 'N/A')
-                league = entry.get('league', 'N/A')
-                time = entry.get('time', 'N/A')
-                home_team = entry.get('homeTeam', 'N/A')
-                away_team = entry.get('awayTeam', 'N/A')
+        # 1. Validation Gate
+        if not source or not isinstance(all_data, dict):
+            print("❌ Validation Failed: Missing source or data is not a nested dictionary.")
+            return JsonResponse({
+                "status": "error",
+                "message": "Invalid structure: 'source' and 'matches' dictionary required."
+            }, status=400)
 
-                # 3. Odds Dictionary
-                odds = entry.get('odds', {})
-                h_odd = odds.get('home', '-')
-                d_odd = odds.get('draw', '-')
-                a_odd = odds.get('away', '-')
+        print("=" * 200)
+        print(f"📥 RECEIVING DATA FROM: {source.upper()}")
+        print("=" * 200)
 
-                # 4. Clean Print Output
-                # print(f"\n[{date} {time}]")
-                # print(f"🌍 {country} | 🏆 {league}")
-                # print(f"🏠 {home_team.ljust(20)} {h_odd}")
-                # print(f"🤝 {'DRAW'.ljust(20)} {d_odd}")
-                # print(f"🚌 {away_team.ljust(20)} {a_odd}")
-                print(f"Date: {date.ljust(10)} | "
-                      f"Time: {time.ljust(10)} | "
-                      f"Country: {country.ljust(10)} | "
-                      f"League: {league.ljust(20)} | "
-                      f"{home_team.ljust(20)} | "
-                      f"{away_team.ljust(20)} | "
-                      f"Draw odd: {d_odd.ljust(10)}"
-                      )
-                print("-" * 100)
+        match_count = 0
 
-            return JsonResponse({"status": "success", "message": "Data saved"}, status=200)
-        except Exception as e:
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+        # 2. Triple Loop: Country -> League -> Match List
+        for country, leagues in all_data.items():
+            for league, match_list in leagues.items():
 
-    return JsonResponse({"status": "error", "message": "Only POST allowed"}, status=405)
+                # Header for each League group
+                print(f"\n🌍 {country.upper()} | 🏆 {league.upper()}")
+                print("-" * 200)
+
+                for match in match_list:
+                    match_count += 1
+
+                    # Extraction
+                    date = match.get('date', 'N/A')
+                    time = match.get('time', 'N/A')
+                    home = match.get('homeTeam', 'N/A')
+                    away = match.get('awayTeam', 'N/A')
+
+                    odds = match.get('odds', {})
+                    h_odd = odds.get('home', '-')
+                    d_odd = odds.get('draw', '-')
+                    a_odd = odds.get('away', '-')
+
+                    # Clean Terminal Output
+                    print(
+                        f"🕒 {time.ljust(8)} | "
+                        f"📅 {date.ljust(15)} | "
+                        f"🏠 {home.ljust(25)} | "
+                        f"🚌 {away.ljust(25)} | "
+                        f"Odds: [1: {h_odd.ljust(6)}] [X: {d_odd.ljust(6)}] [2: {a_odd.ljust(6)}]"
+                    )
+
+        print("\n" + "=" * 200)
+        print(f"✅ Finished! Processed {match_count} matches.")
+        print("=" * 200)
+
+        # 3. Save to Waiting Room (PendingImport)
+        # Assuming PendingImport is your model for raw data
+        PendingImport.objects.create(
+            data=data,
+            scraped_from=source
+        )
+
+        return JsonResponse({
+            "status": "success",
+            "message": f"Successfully processed {match_count} matches from {source}"
+        }, status=200)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Invalid JSON format"}, status=400)
+    except Exception as e:
+        # This prints the EXACT line number and file where it crashed in your terminal
+        print("🔥 --- DJANGO SERVER ERROR --- 🔥")
+        traceback.print_exc()
+        print("-------------------------------")
+
+        # Return a clean message to the extension
+        return JsonResponse({
+            "status": "error",
+            "message": f"Server Logic Error: {str(e)}"
+        }, status=500)  # 500 is more accurate for code crashes
