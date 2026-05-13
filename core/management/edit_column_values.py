@@ -2,6 +2,8 @@ import os
 import django
 
 # 1. Set the settings module (Replace 'Server.settings' with your actual settings path)
+
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Server.settings')
 django.setup()
 
@@ -10,6 +12,7 @@ from core.models import ArchivedFixture
 
 from core.models import ArchivedFixture, League, Fixture
 from core.services import fixture
+from core.services.team import TeamService
 
 
 def update_all_fixture_ids():
@@ -54,5 +57,22 @@ def change_boolean_type():
     print(f"Updated: {count}")
 
 
+def test_equalizing_bets():
+    result = TeamService.redistribute_team_bets_by_no_draw_level()
+
+    error = False
+    for level, (old_total, new_total) in result.items():
+
+        if old_total != new_total:
+            error = True
+
+        print(f"Before: {old_total},   After: {new_total}")
+
+    if error:
+        print(f'!!!!!!!!!!!!!!! Error in calculations !!!!!!!!!!!!!!!!!!')
+    else:
+        print(f'No Errors !!!')
+
+
 if __name__ == "__main__":
-    change_boolean_type()
+    test_equalizing_bets()

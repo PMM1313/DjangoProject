@@ -1,6 +1,5 @@
 from decimal import Decimal
 
-
 from django.db import models
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -37,15 +36,17 @@ class League(models.Model):
 class Team(models.Model):
     id = models.IntegerField(primary_key=True)  # from API
     name = models.CharField(max_length=50)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)  # if the team is active in the league
+    is_played = models.BooleanField(default=False)  # if the team have played fixture (not solved fixture)
     # PROTECT ensures you can't delete a League/Country that has active teams
     country = models.ForeignKey(Country, on_delete=models.PROTECT, null=True, blank=True)
     league = models.ForeignKey(League, on_delete=models.PROTECT, null=True, blank=True)
 
-    all_bets = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    extra_bets = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    all_bets = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+    extra_bets = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     last_played_date = models.DateField(null=True, blank=True, default=None)
-    no_draw = models.IntegerField(null=True, blank=True)
+    no_draw = models.IntegerField(null=True, blank=True, default=0)
+    logo = models.ImageField(upload_to='teams/logos/', null=True, blank=True)
 
     # Add these lines to tell your editor about the related names
     home_fixtures: models.Manager['Fixture']
@@ -105,6 +106,7 @@ class Fixture(models.Model):
     away_team_plus_used_for_recovery = models.BooleanField(default=False)
 
     league = models.ForeignKey(League, on_delete=models.PROTECT)
+    league_round = models.CharField(max_length=50, null=True, blank=True)
     country = models.ForeignKey(Country, on_delete=models.PROTECT)
     coefficient = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     is_played = models.BooleanField(default=False)
@@ -236,6 +238,7 @@ class ArchivedFixture(models.Model):
     date = models.DateTimeField()
     league_name = models.CharField(max_length=100)  # Store name as string for archive
     league = models.ForeignKey(League, on_delete=models.PROTECT, null=True, blank=True)
+    league_round = models.CharField(max_length=50, null=True, blank=True)
     country = models.ForeignKey(Country, on_delete=models.PROTECT, null=True, blank=True)
     season = models.PositiveIntegerField(null=True, blank=True)
     status = models.CharField(max_length=20, null=True, blank=True)
@@ -365,7 +368,6 @@ class ForRecover(models.Model):
 
 
 class RecoverFixture(models.Model):
-
     for_recover = models.ForeignKey(
         ForRecover,
         on_delete=models.CASCADE,
@@ -440,4 +442,3 @@ class PendingImport(models.Model):
 
     def __str__(self):
         return f"Import from {self.source} at {self.created_at}. Processed: {self.is_processed}"
-

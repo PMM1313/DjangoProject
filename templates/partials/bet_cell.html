@@ -1,5 +1,5 @@
-<td class="col-bet" id="bet-container-{{ f.id }}">
-    <div class="bet-wrapper shimmer-target" id="bet-shimmer-{{ f.id }}">
+<td class="col-bet" id="bet-container-{{ f.fixture_id }}">
+    <div class="bet-wrapper shimmer-target" id="bet-shimmer-{{ f.fixture_id }}">
         {% if f.total_fixture_bet %}
             <span>{{ f.total_fixture_bet|floatformat:2 }}</span>
         {% else %}

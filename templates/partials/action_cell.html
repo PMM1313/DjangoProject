@@ -1,5 +1,5 @@
-<td class="col-action" id="action-container-{{ f.id }}" xmlns:hx-on="http://www.w3.org/1999/xhtml">
-    <div class="action-container shimmer-target" id="action-shimmer-{{ f.id }}">
+<td class="col-action" id="action-container-{{ f.fixture_id }}" xmlns:hx-on="http://www.w3.org/1999/xhtml">
+    <div class="action-container shimmer-target" id="action-shimmer-{{ f.fixture_id }}">
         {% if f.status == "Match Finished" %}
             {% if f.is_played %}
 
@@ -13,7 +13,7 @@
 
                 <button class="btn-resolve"
                         {% if not f.can_be_resolved %} disabled {% endif %}
-                        hx-post="{% url 'resolve_match' f.id %}"
+                        hx-post="{% url 'resolve_match' f.fixture_id %}"
                         hx-target="closest tr"
                         hx-swap="delete transition:true"
                         hx-on--before-request="this.closest('tr').style.viewTransitionName = 'leaving-row'"
@@ -42,27 +42,27 @@
             <span class="status-generic">{{ f.status }}</span>
 
             <button class="btn-play"
-                    id="play-btn-{{ f.id }}"
+                    id="play-btn-{{ f.fixture_id }}"
                     disabled
-                    hx-post="{% url 'play_match' f.id %}"
+                    hx-post="{% url 'play_match' f.fixture_id %}"
 {#                    hx-indicator="#odds-shimmer-{{ f.id }},#}
 {#                                  #action-shimmer-{{ f.id }},#}
 {#                                  #bet-shimmer-{{ f.id }}"#}
-                    hx-target="#fixture-row-{{ f.id }}"
+                    hx-target="#fixture-row-{{ f.fixture_id }}"
                     hx-swap="outerHTML transition:true"
                     hx-on::before-request="this.closest('tr').classList.add('row-loading')"
-                    hx-vals='js:{coefficient: document.getElementById("odds-input-{{ f.id }}").value}'>
+                    hx-vals='js:{coefficient: document.getElementById("odds-input-{{ f.fixture_id }}").value}'>
                 Play Match
             </button>
         {% endif %}
 
-        <button class="kebab-trigger" onclick="toggleKebabMenu(event, '{{ f.id }}')">
+        <button class="kebab-trigger" onclick="toggleKebabMenu(event, '{{ f.fixture_id}}')">
             <i class="fas fa-ellipsis-v"></i>
         </button>
 
     </div>
 
-    <div id="menu-{{ f.id }}" class="kebab-dropdown" style="display: none;">
+    <div id="menu-{{ f.fixture_id }}" class="kebab-dropdown" style="display: none;">
         <a href="#" >Second Job for {{ f.home_team_name }} and {{ f.away_team_name }}</a>
         <a href="#" class="text-danger">Delete Team</a>
     </div>

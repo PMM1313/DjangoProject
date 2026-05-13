@@ -2,21 +2,31 @@
        xmlns:hx-on="http://www.w3.org/1999/xhtml" xmlns:hx-on="http://www.w3.org/1999/xhtml"
        xmlns:hx-on="http://www.w3.org/1999/xhtml" xmlns:hx-on="http://www.w3.org/1999/xhtml"
        xmlns:hx-on="http://www.w3.org/1999/xhtml" xmlns:hx-on="http://www.w3.org/1999/xhtml">
-
-    .selected-box {
+    :root {
+          --distribution-table-background-color: #cbd5e0;
+        }
+    .distribution-options,
+    .selected-box   {
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
+        justify-content: center;
         align-items: center;
-        {#justify-content: center;#}
-        margin-bottom: 20px;
-        padding: 15px 15px 15px 4em;
-        {#background: #b2e0ff;#}
+        padding: 15px;
         border: 2px solid #2d3436;
         border-radius: 10px;
-        {#text-align: left;#}
-        background-color: #cbd5e0;
+        background-color: var(--distribution-table-background-color);
         transition: all 0.3s ease;
         gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .selected-container {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
     }
 
     .matrix-wrapper {
@@ -38,6 +48,14 @@
         align-items: center;
         border-radius: 10px;
         transition: 0.2s;
+    }
+
+    /* Ensure the error message doesn't break the flex line */
+    .error-text {
+        color: #e53e3e;
+        font-size: 0.7rem;
+        width: 100%; /* Forces error to its own line below the flex row */
+        text-align: center;
     }
 
     .icon-wrapper {
@@ -182,24 +200,44 @@
         return /^\d+(\.\d{1,2})?$/.test(val) && parseFloat(val) > 0;
      }}">
 
+    <div class="distribution-options" style="position: relative";>
+        <div class="distribution-table-buttons" style="display: flex;
+            flex-direction: row;
+            justify-content: flex-start;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            width: 100%;
+            gap: 10px">
+
+            <button class="btn-summary">
+                Equalize in ND range
+            </button>
+
+            <button class="btn-summary">
+                Equalize vertically
+            </button>
+
+        </div>
+    </div>
+
     <div class="selected-box" style="position: relative;">
         <template x-if="!selectedId">
             <p>Please select a team to see details.</p>
         </template>
 
 {#        <template x-if="selectedId">#}
-        <div x-show="selectedId" style="display: contents;">
+        <div x-show="selectedId" class="selected-container">
             <strong>Selected: </strong>
-            (ID: <span x-text="selectedId"></span>)
-            --- <strong x-text="selectedName"></strong>
-            --- <span x-text="selectedLeague"></span>
-            --- <p>Current Total: €<span x-text="selectedId ? Number(teamBets[selectedId]).toFixed(2) : '0.00'"></span></p>
-            --- For Distribution:
+            <span>(ID: <span x-text="selectedId"></span>)</span>
+            <span>--- <strong x-text="selectedName"></strong></span>
+            <span>--- <span x-text="selectedLeague"></span></span>
+            <span>--- Current Total: €<span x-text="selectedId ? Number(teamBets[selectedId]).toFixed(2) : '0.00'"></span></span>
+            <span>--- For Distribution:</span>
             <input type="text"
                    x-model="forDistributionInput"
-                   placeholder="e.g. 10.50"
+                   placeholder="10.50"
                    @input="forDistributionInput = forDistributionInput.replace(/[^0-9.]/g, '')"
-                   style="outline: none; padding: 8px; border-radius: 4px;">
+                   style="outline: none; padding: 8px; border-radius: 4px; width: 5ch">
                    {#:style="isValidDecimal(forDistributionInput) ? 'border-color: green' : 'border-color: #cbd5e0'">#}
 
             <button type="button"
@@ -230,9 +268,10 @@
                 Submit Value
             </button>
 
-            <p x-show="forDistributionInput && !isValidDecimal(forDistributionInput)" style="color: #e53e3e; font-size: 0.6rem;">
-                Please enter a valid number.
-            </p>
+            <!-- Error message moved outside the main flow but inside the container -->
+            <template x-if="forDistributionInput && !isValidDecimal(forDistributionInput)">
+                <div class="error-text">Please enter a valid number (e.g. 10.50).</div>
+            </template>
 
 {#                <div x-show="amount > 0.50" style="color: green; margin-top: 10px;">#}
 {#                    ✅ This is a high-value bet!#}

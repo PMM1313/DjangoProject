@@ -288,40 +288,36 @@ def add_manual_fixture(request):
 @login_required
 @transaction.atomic
 def settle_fixture_manual(request, fixture_id):
-    # Find the fixture in your DB
+    # 1. Fetch the fixture object from the database using the ID from the URL
     fixture = get_object_or_404(Fixture, fixture_id=fixture_id)
 
-    if request.method == "POST":
-        form = SettleFixtureForm(request.POST)
-        if form.is_valid():
-            fixture.home_score = form.cleaned_data['home_score']
-            fixture.away_score = form.cleaned_data['away_score']
-            fixture.status = form.cleaned_data['status']
-            fixture.is_played = True if fixture.status == 'Match Finished' else False
-            fixture.save()
-
-            # Return success toast and refresh table
-            response = toast_response(f"Settled: {fixture.home_team_name} vs {fixture.away_team_name}", level="success")
-
-            # Trigger table refresh
-            triggers = json.loads(response["HX-Trigger"])
-            triggers["refreshFixtures"] = True
-            response["HX-Trigger"] = json.dumps(triggers)
-            return response
-
-    # GET request returns the small form partial
+    # 2. Pass it to the template as 'f'
     return render(request, 'partials/settle_fixture_form.html', {
-        'form': SettleFixtureForm(initial={'status': 'Match Finished'}),
-        'fixture': fixture
+        'f': fixture
     })
+
+
+@login_required
+@transaction.atomic
+def confirm_manual_settle(request, fixture_id):
+    fixture = get_object_or_404(Fixture, id=fixture_id)
+    if request.method == "POST":
+        fixture.home_score = request.POST.get('home_score')
+        fixture.away_score = request.POST.get('away_score')
+        fixture.status = request.POST.get('status')
+        fixture.save()
+
+    # Return the original row template so the inputs disappear
+    # and the new scores show up in the normal table layout
+    return render(request, 'partials/fixture_row.html', {'f': fixture})
 
 
 @login_required  # Ensures only logged-in users can delete
 @transaction.atomic  # Ensures the DB stays consistent if deletion is complex
 @require_http_methods(["DELETE"])
-def delete_fixture(request, pk):
+def delete_fixture(request, fixture_id):
     try:
-        fixture = Fixture.objects.get(pk=pk)
+        fixture = Fixture.objects.get(fixture_id=fixture_id)
         fixture.delete()
         data = {"text": "Fixture deleted successfully!", "level": "success"}
         status_code = 200
@@ -340,8 +336,8 @@ def delete_fixture(request, pk):
 
 @login_required  # Ensures only logged-in users can play
 @transaction.atomic
-def play_match(request, pk):
-    fixture_obj = get_object_or_404(Fixture, pk=pk)
+def play_match(request, fixture_id):
+    fixture_obj = get_object_or_404(Fixture, fixture_id=fixture_id)
 
     conflict_msg = fixture_obj.does_teams_have_played_fixtures
     if conflict_msg:
@@ -355,7 +351,7 @@ def play_match(request, pk):
         return response
 
     coef = request.POST.get('coefficient')
-    fixture = FixtureService.play_match(pk, coef)
+    fixture = FixtureService.play_match(fixture_id, coef)
 
     html = render_to_string("partials/fixture_row.html", {"f": fixture}, request=request)
     response = HttpResponse(html)
@@ -367,10 +363,10 @@ def play_match(request, pk):
 
 @login_required  # Ensures only logged-in users can delete
 @transaction.atomic  # Ensures the DB stays consistent if deletion is complex
-def resolve_match_view(request, pk):
+def resolve_match_view(request, fixture_id):
     if request.method == "POST":
         # 1. Execute the business logic (Resetting debts or carrying them over)
-        FixtureService.resolve_fixture(pk)
+        FixtureService.resolve_fixture(fixture_id)
 
         # 2. Return an empty response with a 200 status.
         # HTMX will see this and, combined with hx-target="closest tr" and hx-swap="delete",
@@ -754,78 +750,56 @@ def change_league_used_or_not(request):
 @transaction.atomic
 def save_league_from_api(request):
     league_id = request.POST.get('league_id')
-
-    # 1. Pull the results dictionary from the session
     search_results = request.session.get('external_search_results', {})
-
-    # 2. Get the "Whole Item" using the ID
     item = search_results.get(str(league_id))
 
     if not item:
-        return HttpResponse("Data expired. Please search again.", status=400)
+        return HttpResponse("Data expired.", status=400)
 
-    #### LEAGUE NAD COUNTRY LOGO AND FLAG
     league_data = item.get('league', {})
     country_data = item.get('country', {})
-    # 1. Handle Country & Flag
-    country, created_c = Country.objects.get_or_create(name=country_data.get('name'))
-    if created_c or not country.flag:
-        LeagueService.download_image_to_field(country_data.get('flag'), country.flag)
-        country.save()
-
-    # 2. Handle League & Logo
-    league, created_l = League.objects.get_or_create(
-        id=league_id,
-        defaults={'name': league_data.get('name'), 'country': country}
-    )
-
-    # Always update the logo if it's missing
-    if not league.logo:
-        LeagueService.download_image_to_field(league_data.get('logo'), league.logo)
-
-    league.save()
-    #####################################
-
-    # 2. Grab the specific 'current' season directly
-    # This looks for the first (and only) dictionary where 'current' is True
     seasons = item.get('seasons', [])
     current_season = next((s for s in seasons if s.get('current') is True), {})
 
-    # 3. Calculate if "Today" is within the season dates
+    # 1. Handle Country & Flag
+    country, _ = Country.objects.get_or_create(name=country_data.get('name'))
+    if not country.flag:
+        LeagueService.download_image_to_field(country_data.get('flag'), country.flag)
+        country.save()
+
+    # 2. Prepare Season Data
     today = date.today()
     start_str = current_season.get('start')
     end_str = current_season.get('end')
-
-    # Convert date string to a date object
     start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
     end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
-
-    # Check if today falls between start and end (inclusive)
     is_actually_in_season = start_date <= today <= end_date
 
-    # 3. Update or Create the League
-    # Note: We use .get() to avoid KeyErrors if a field is missing
+    # 3. Update or Create the League (ONE CALL)
     league, created = League.objects.update_or_create(
         id=league_id,
         defaults={
-            'name': item.get('league', {}).get('name'),
-            'country': Country.objects.get_or_create(name=item.get('country', {}).get('name'))[0],
-
-            # Map API data to your model fields
+            'name': league_data.get('name'),
+            'country': country,
             'in_season': is_actually_in_season,
-            'season_start': current_season.get('start'),
-            'season_end': current_season.get('end'),
+            'season_start': start_date,
+            'season_end': end_date,
             'season_year': current_season.get('year'),
-            'last_updated_date': date.today()
+            'last_updated_date': today
         }
     )
 
+    # 4. Handle Logo separately ONLY if it's missing
+    # We do this after the update_or_create so we have a valid instance
+    if not league.logo:
+        LeagueService.download_image_to_field(league_data.get('logo'), league.logo)
+        league.save()
+
     response = HttpResponse("""
-            <div style="background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
-                ✅ Added
-            </div>
-        """)
-    # This tells the browser to fire a 'leagueAdded' event
+        <div style="background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
+            ✅ Added
+        </div>
+    """)
     response['HX-Trigger'] = 'leagueAdded'
     return response
 

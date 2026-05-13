@@ -13,7 +13,7 @@
     /* Apply the padding here instead */
     /* indents based on table width */
     padding: 10px 10px 10px 40%;
-    width: 100%;
+    /*width: 100%;*/
 }
 
 .toggle-icon {

@@ -81,7 +81,7 @@ class FixtureService:
         print(f"From: {start_date}, To: {end_date}, Fixtures:{len(fixtures_data)}")
 
         # 1. Get all tracked IDs once to avoid hitting the DB in every loop iteration
-        tracked_team_ids = set(Team.objects.values_list('id', flat=True))
+        tracked_team_ids = set(Team.objects.filter(is_active=True).values_list('id', flat=True))
         used_league_ids = set(League.objects.filter(is_used=True).values_list("id", flat=True))
         existing_fixtures = set(Fixture.objects.values_list("home_id", "away_id", "league_id"))
 
@@ -103,9 +103,8 @@ class FixtureService:
             is_league_tracked = league_id in used_league_ids
 
             # 4. Parse Date
-            api_date_and_start_time = item["fixture"]["date"]
             # If your model is DateField (not DateTimeField), use .date()
-            fixture_date_and_start_time = datetime.fromisoformat(api_date_and_start_time)
+            fixture_date_and_start_time = datetime.fromisoformat(item["fixture"]["date"])
 
             # print(f"step 1")
             if not is_h_tracked and not is_a_tracked and not is_league_tracked:
@@ -125,8 +124,21 @@ class FixtureService:
             if not league_obj:
                 league_obj = LeagueService.update_or_create_league(item["league"])
                 print(f"League: {league_obj.name}, Country: {league_obj.country} added to DB")
+                # check for logo and download it if not
+                if not league_obj.logo:
+                    logo_url = item['league'].get('logo')
+                    if logo_url:
+                        LeagueService.download_image_to_field(logo_url, league_obj.logo)
+                        league_obj.save()  # Commit the new logo path to DB
 
             country_obj = league_obj.country  # Assuming League model links to Country
+            # check for country flag if not download it
+            # Check if the flag field is empty (no file path in DB)
+            if not country_obj.flag:
+                flag_url = item['country'].get('flag')
+                if flag_url:
+                    LeagueService.download_image_to_field(flag_url, country_obj.flag)
+                    country_obj.save()  # Commit the new flag path to DB
 
             # print(f"step 2")
             # League tracked → auto-import teams for new team that are not in DB, but league is tracked
@@ -138,7 +150,7 @@ class FixtureService:
                 ]
 
                 for team_id, team_name, is_tracked in teams_to_check:
-                    if not is_tracked:
+                    if not is_tracked:  # if team not in DB add it, because league is tracked
                         TeamService.create_team_in_db({
                             "id": team_id,
                             "name": team_name,
@@ -147,6 +159,8 @@ class FixtureService:
                             "is_active": True
                         })
                         tracked_team_ids.add(team_id)
+
+                # check for team logo
 
             # print(f"step 3")
             # 3. Check for existing fixture using IDs. can be updated here if new date, match status...
@@ -162,7 +176,15 @@ class FixtureService:
 
             # print(f"step 4")
             # 5. Create Fixture using your new schema
-            fixture_id = self.generate_fixture_id(fixture_date_and_start_time, h_id, a_id, year_as_int,)
+            fixture_id = self.generate_fixture_id(fixture_date_and_start_time, h_id, a_id, year_as_int, )
+            # 1. Try to fetch the home and away team objects from your database
+            home_team_internal = Team.objects.filter(id=item["teams"]["home"]["id"]).first()
+            away_team_internal = Team.objects.filter(id=item["teams"]["away"]["id"]).first()
+
+            # 2. Set names: Use internal name if object exists, else fallback to API name
+            h_name = home_team_internal.name if home_team_internal else item["teams"]["home"]["name"]
+            a_name = away_team_internal.name if away_team_internal else item["teams"]["away"]["name"]
+
             fixture = Fixture.objects.create(
                 api_sport_id=item["fixture"]['id'],
                 fixture_id=fixture_id,
@@ -171,6 +193,7 @@ class FixtureService:
                 home_team_name=h_name,
                 away_team_name=a_name,
                 league=league_obj,
+                league_round=item['league']['round'],
                 country=country_obj,
                 date=fixture_date_and_start_time,
                 home_score=item["score"]["fulltime"]["home"],
@@ -182,6 +205,16 @@ class FixtureService:
             )
 
             existing_fixtures.add((h_id, a_id, league_id))
+
+            # check for team logos
+            for side in ['home', 'away']:
+                team_id = item['teams'][side]['id']
+                # Use .first() to get the actual instance
+                team_obj = Team.objects.filter(id=team_id).first()
+                if not team_obj.logo:
+                    team_logo_url = item['teams'][side]['logo']
+                    LeagueService.download_image_to_field(team_logo_url, team_obj.logo)
+                    team_obj.save()
 
             # The corrected, more accurate version:
             league_status = f"League: {league_obj} Used:{is_league_tracked}"
@@ -220,7 +253,7 @@ class FixtureService:
     def play_match(fixture_id, coefficient):
         with transaction.atomic():
             # 1. Fetch the fixture
-            fixture = get_object_or_404(Fixture, pk=fixture_id)
+            fixture = get_object_or_404(Fixture, fixture_id=fixture_id)
             fixture.coefficient = Decimal(str(coefficient))
             coef = fixture.coefficient
             total_bets = Decimal('0.00')  # sum both teams current bet for DB
@@ -255,8 +288,8 @@ class FixtureService:
                     plus = total_return - (total_cost + profit)
                     plus = max(Decimal('0'), plus).quantize(Decimal('0.01'), rounding=ROUND_UP)
 
-                    # save the last played date in the team
-                    Team.objects.filter(pk=team.id).update(last_played_date=today)
+                    # save the last played date in the team and mark as played
+                    Team.objects.filter(pk=team.id).update(last_played_date=today, is_played=True)
 
                 # 5. Save to fixture
                 setattr(fixture, f"{side}_team_bet", bet)
@@ -297,20 +330,20 @@ class FixtureService:
     @staticmethod
     def resolve_fixture(fixture_id):
         with transaction.atomic():
-            # 1. LOCK the fixture row so no other process can resolve it simultaneously
-            fixture = Fixture.objects.select_for_update().get(pk=fixture_id)
 
-            # Identify the teams involved
-            team_ids = [fixture.home_id, fixture.away_id]
+            # 1. LOCK the fixture row so no other process can resolve it simultaneously
+            fixture = Fixture.objects.select_for_update().get(fixture_id=fixture_id)
+
+            home_team_id = fixture.home_id
+            away_team_id = fixture.away_id
 
             if fixture.is_draw:
 
-                # 2. ATOMIC RESET: Update both teams in one hit
-                # This is safe because it doesn't rely on Python snapshots
-                Team.objects.filter(id__in=team_ids).update(
-                    all_bets=0,
+                Team.objects.filter(id__in=[home_team_id, away_team_id]).update(
+                    all_bets=Decimal('0.00'),
+                    extra_bets=Decimal('0.00'),
                     no_draw=0,
-                    extra_bets=0
+                    is_played=False  # или True, зависи от твоята логика за статус
                 )
 
                 # 3. TRACKING: Record the success for the day
@@ -322,26 +355,26 @@ class FixtureService:
                 use_plus = settings.use_plus_for_recover
 
                 if use_plus and fixture.home_team_plus + fixture.away_team_plus > Decimal('0'):
-
                     plus_used = use_plus_for_recovery(fixture)
 
                 if fixture.home_team_plus + fixture.away_team_plus > Decimal('0'):
-
                     TrackingValues.add_entry(fixture.home_team_plus + fixture.away_team_plus, "PLUS_EARNED")
 
             else:
                 # 4. ATOMIC INCREMENT: Add 1 to the current DB value
                 # Coalesce ensures that if no_draw is NULL, it starts at 0
-                Team.objects.filter(id__in=team_ids).update(
-                    no_draw=Coalesce(F('no_draw'), 0) + 1
+                # За домакина
+                Team.objects.filter(id=home_team_id).update(
+                    all_bets=Coalesce(F('all_bets'), Decimal('0.00')) + fixture.home_team_bet,
+                    no_draw=Coalesce(F('no_draw'), 0) + 1,
+                    is_played=False
                 )
 
-                Team.objects.filter(id=fixture.home_id).update(
-                    all_bets=Coalesce(F('all_bets'), Decimal('0.00')) + fixture.home_team_bet
-                )
-
-                Team.objects.filter(id=fixture.away_id).update(
-                    all_bets=Coalesce(F('all_bets'), Decimal('0.00')) + fixture.away_team_bet
+                # За госта
+                Team.objects.filter(id=away_team_id).update(
+                    all_bets=Coalesce(F('all_bets'), Decimal('0.00')) + fixture.away_team_bet,
+                    no_draw=Coalesce(F('no_draw'), 0) + 1,
+                    is_played=False
                 )
 
             # 5. ARCHIVE & CLEANUP
@@ -392,6 +425,7 @@ class FixtureService:
             status=fixture.status,
             league_name=fixture.league.name,
             league=fixture.league,
+            league_round=fixture.league_round,
             country=fixture.country,
             season=fixture.season,
             is_played=fixture.is_played,
