@@ -125,17 +125,19 @@ class FixtureService:
                 league_obj = LeagueService.update_or_create_league(item["league"])
                 print(f"League: {league_obj.name}, Country: {league_obj.country} added to DB")
                 # check for logo and download it if not
-                if not league_obj.logo:
-                    logo_url = item['league'].get('logo')
-                    if logo_url:
-                        LeagueService.download_image_to_field(logo_url, league_obj.logo)
-                        league_obj.save()  # Commit the new logo path to DB
+
+            # check for league logo if not download it
+            if not league_obj.logo:
+                logo_url = item['league'].get('logo')
+                if logo_url:
+                    LeagueService.download_image_to_field(logo_url, league_obj.logo)
+                    league_obj.save()  # Commit the new logo path to DB
 
             country_obj = league_obj.country  # Assuming League model links to Country
             # check for country flag if not download it
             # Check if the flag field is empty (no file path in DB)
             if not country_obj.flag:
-                flag_url = item['country'].get('flag')
+                flag_url = item['league'].get('flag')
                 if flag_url:
                     LeagueService.download_image_to_field(flag_url, country_obj.flag)
                     country_obj.save()  # Commit the new flag path to DB
