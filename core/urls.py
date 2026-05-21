@@ -28,7 +28,12 @@ urlpatterns = [
     path('fixture/settle/<int:fixture_id>/', views.settle_fixture_manual, name='settle_fixture_manual'),
     path('fixture/confirm-settle/<int:fixture_id>/', views.confirm_manual_settle, name='confirm_manual_settle'),
     path('fixture/result-and-status/', views.results_and_statuses_view, name='fetch_scores_and_statuses'),
+
+    # distribution tab
     path('for_distribution/', views.for_distribution_view, name='for_distribution'),
+    path('equalize-in-range/', views.equalize_in_range, name='equalize_in_range'),
+
+
     path('alpine-playground/', views.alpine_playground, name='alpine_playground'),
     path('streaks/', views.get_streaks, name='get_streaks'),
 

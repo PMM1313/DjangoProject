@@ -123,18 +123,22 @@ class TeamService:
                 base_part = (level_total / count).quantize(Decimal('0.01'), rounding=ROUND_FLOOR)
                 remainder_pennies = int((level_total - (base_part * count)) * 100)
 
-                # Актуализираме
+                updated_teams = []
+                checksum_total = Decimal('0')
+
                 for i, team in enumerate(teams_in_level.order_by('id')):
                     bonus = Decimal('0.01') if i < remainder_pennies else Decimal('0')
+                    team.all_bets = base_part + bonus
+                    checksum_total += team.all_bets
+                    updated_teams.append(team)
 
-                    new_value = base_part + bonus
-                    new_total += new_value
+                # --- THE RE-CHECK ---
+                if checksum_total != level_total:
+                    # If the math is wrong, we raise an exception to roll back the WHOLE transaction
+                    raise ValueError(f"Math mismatch at level {level}: Expected {level_total}, got {checksum_total}")
 
-                    # print(f"DEBUG: Team {team.name} (ID: {team.id}) | Old: {team.all_bets} -> New: {new_value}")
-                    # team.all_bets = base_part + bonus
-                    # team.save()
+                # --- THE SAVE ---
+                # Update only the 'all_bets' field for these specific objects
+                Team.objects.bulk_update(updated_teams, ['all_bets'])
 
-                # print(f"Before equalizing: {level_total}, after: {new_total}")
-                results[level] = level_total, new_total
-
-        return results
+        return True

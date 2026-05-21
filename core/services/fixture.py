@@ -11,7 +11,7 @@ from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from ..forms import ManualFixtureForm
+from django.conf import settings
 
 from .league import LeagueService
 from .team import TeamService
@@ -21,9 +21,9 @@ from .for_recover import use_plus_for_recovery
 
 
 class FixtureService:
-    API_URL = "https://v3.football.api-sports.io/fixtures"
-    API_KEY = "89c35ddda792b7979b1a6298bf817935"
-    TIMEZONE = "Europe/Sofia"
+    API_URL = getattr(settings, 'API_URL')
+    API_KEY = getattr(settings, 'API_KEY')
+    TIMEZONE = getattr(settings, 'TIMEZONE')
 
     # ---------- FETCH ----------
 
@@ -56,11 +56,11 @@ class FixtureService:
         return data["response"]
 
     # ---------- CONDITIONS ----------
-    def should_import(self, item: dict) -> bool:
-        """
-        Define your business rules here
-        """
-        pass
+    # def should_import(self, item: dict) -> bool:
+    #     """
+    #     Define your business rules here
+    #     """
+    #     pass
 
     # ---------- PROCESS AND SAVE BULK ----------
     @transaction.atomic
@@ -84,6 +84,9 @@ class FixtureService:
         tracked_team_ids = set(Team.objects.filter(is_active=True).values_list('id', flat=True))
         used_league_ids = set(League.objects.filter(is_used=True).values_list("id", flat=True))
         existing_fixtures = set(Fixture.objects.values_list("home_id", "away_id", "league_id"))
+        processed_league_logos = set()
+        processed_team_logos = set()
+        processed_country_flags = set()
 
         print(f"Tracked leagues: {used_league_ids}")
 
@@ -111,11 +114,13 @@ class FixtureService:
                 # print(f"step 1-2")
                 # Skip if neither team is in our "Main" tracked table, and leagues is not used too
 
-                # Delete fixture in db if teams and league are not tracked
-                Fixture.objects.filter(home_id=h_id, away_id=a_id, league_id=league_id).delete()
-                existing_fixtures.discard((h_id, a_id, league_id))
-                # print(f"step 1-3")
-                continue
+                # 1. Check the local memory set FIRST
+                if (h_id, a_id, league_id) in existing_fixtures:
+                    # Delete fixture in db if teams and league are not tracked
+                    Fixture.objects.filter(home_id=h_id, away_id=a_id, league_id=league_id).delete()
+                    existing_fixtures.discard((h_id, a_id, league_id))
+                    # print(f"step 1-3")
+                    continue
 
             # print(f"step 1-4")
             league_obj = League.objects.filter(id=item["league"]["id"]).select_related('country').first()
@@ -127,24 +132,35 @@ class FixtureService:
                 # check for logo and download it if not
 
             # check for league logo if not download it
-            if not league_obj.logo:
-                logo_url = item['league'].get('logo')
-                if logo_url:
-                    LeagueService.download_image_to_field(logo_url, league_obj.logo)
-                    league_obj.save()  # Commit the new logo path to DB
+            if league_obj.id not in processed_league_logos:
+                if not league_obj.logo:
+                    logo_url = item['league'].get('logo')
+                    if logo_url:
+                        LeagueService.download_image_to_field(logo_url, league_obj.logo)
+                        league_obj.save()  # Commits to the instance/staged transaction
+
+                # Mark it as processed so subsequent iterations skip the DB lookups/downloads
+                processed_league_logos.add(league_obj.id)
 
             country_obj = league_obj.country  # Assuming League model links to Country
+
             # check for country flag if not download it
             # Check if the flag field is empty (no file path in DB)
-            if not country_obj.flag:
-                flag_url = item['league'].get('flag')
-                if flag_url:
-                    LeagueService.download_image_to_field(flag_url, country_obj.flag)
-                    country_obj.save()  # Commit the new flag path to DB
+            if country_obj and country_obj.id not in processed_country_flags:
+                if not country_obj.flag:
+                    flag_url = item['league'].get('flag')
+                    if flag_url:
+                        LeagueService.download_image_to_field(flag_url, country_obj.flag)
+                        country_obj.save()  # Commit the new flag path to DB
+
+                # Mark it as processed so we skip it for subsequent fixtures of the same country
+                processed_country_flags.add(country_obj.id)
 
             # print(f"step 2")
             # League tracked → auto-import teams for new team that are not in DB, but league is tracked
-            if is_league_tracked:
+            # and check if the round is regular season round, so not add teams that play in Promotion
+            # for upper league and are actually in lower league, but API provides upper league ID
+            if is_league_tracked and item['league']['round'].startswith("Regular Season"):
                 # Define a list of team data to check
                 teams_to_check = [
                     (h_id, h_name, is_h_tracked),
@@ -153,6 +169,7 @@ class FixtureService:
 
                 for team_id, team_name, is_tracked in teams_to_check:
                     if not is_tracked:  # if team not in DB add it, because league is tracked
+
                         TeamService.create_team_in_db({
                             "id": team_id,
                             "name": team_name,
@@ -209,14 +226,20 @@ class FixtureService:
             existing_fixtures.add((h_id, a_id, league_id))
 
             # check for team logos
+            # At the bottom of the loop:
             for side in ['home', 'away']:
                 team_id = item['teams'][side]['id']
-                # Use .first() to get the actual instance
-                team_obj = Team.objects.filter(id=team_id).first()
-                if not team_obj.logo:
-                    team_logo_url = item['teams'][side]['logo']
-                    LeagueService.download_image_to_field(team_logo_url, team_obj.logo)
-                    team_obj.save()
+
+                if team_id not in processed_team_logos:
+                    team_obj = Team.objects.filter(id=team_id).first()
+                    if team_obj and not team_obj.logo:
+                        team_logo_url = item['teams'][side].get('logo')
+                        if team_logo_url:
+                            LeagueService.download_image_to_field(team_logo_url, team_obj.logo)
+                            team_obj.save()
+
+                    # Mark as processed so we don't query or download for this team again
+                    processed_team_logos.add(team_id)
 
             # The corrected, more accurate version:
             league_status = f"League: {league_obj} Used:{is_league_tracked}"

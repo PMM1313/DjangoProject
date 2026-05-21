@@ -32,10 +32,11 @@
                 <span class="status-generic">FINISHED NOT PLAYED</span>
             {% endif %}
 
+        {% elif f.status == "Match Abandoned" %}
+            <span class="status-match-played">ABANDONED</span>
+
         {% elif f.is_played %}
             <span class="status-match-played">MATCH PLAYED</span>
-
-{#        {% elif f.status == "Not Started" %}#}
 
 
         {% else %}

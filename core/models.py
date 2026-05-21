@@ -439,6 +439,9 @@ class PendingImport(models.Model):
 
     # Use this to keep track of processed batches
     is_processed = models.BooleanField(default=False)
+    are_fixtures_imported = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Import from {self.source} at {self.created_at}. Processed: {self.is_processed}"
+        return f"""Import from {self.source} at {self.created_at}. 
+                Processed: {self.is_processed}
+                Fixtures imported: {self.are_fixtures_imported}"""

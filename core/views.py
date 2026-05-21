@@ -529,7 +529,9 @@ def for_distribution_view(request):
 def toast_response(message, level="success", status_code=200, data=None):
     """
     Helper to return a JsonResponse with HTMX toast triggers.
+    Message: string
     Levels: 'success', 'error', 'info', 'warning'
+    Data: for Alpine (for now used in for distribution entries)
     """
     payload = {"message": message, "status": level}
     if data is not None:
@@ -655,7 +657,7 @@ def imports_tab_page(request):
             league_wrappers.append({
                 'external_name': l_name,
                 'internal_obj': internal_league,
-                'matches': match_wrappers, # List of match wrappers,
+                'matches': match_wrappers,  # List of match wrappers,
                 'needs_mapping': internal_league is None
             })
 
@@ -864,6 +866,38 @@ def update_recovery_amount(request):
             return toast_response(f"System Error: {str(e)}", "error", 500)
 
     return toast_response("Invalid Method", "error", 405)
+
+
+# distribution tab
+@login_required
+@transaction.atomic
+def equalize_in_range(request):
+    if request.method != 'POST':
+        return toast_response("Method not allowed", level="error", status_code=405)
+    try:
+        result = TeamService.redistribute_team_bets_by_no_draw_level()
+
+        return toast_response(
+            message="Bets redistributed successfully!",
+            level="success",
+        )
+
+    except ValueError as e:
+        # 3. Return the "Calculations are wrong" error (422)
+        # This triggers the 'error' level toast in your frontend
+        return toast_response(
+            message=str(e),
+            level="error",
+            status_code=422
+        )
+
+    except Exception as e:
+        # 4. Catch-all for unexpected server crashes (500)
+        return toast_response(
+            message="A critical server error occurred.",
+            level="error",
+            status_code=500
+        )
 
 
 @csrf_exempt

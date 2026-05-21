@@ -67,6 +67,11 @@ else:
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 
+# API Calls
+API_URL = os.getenv('API_URL')
+API_KEY = os.getenv('API_KEY')
+TIMEZONE = os.getenv('TIMEZONE')
+
 # Protects the endpoints
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
