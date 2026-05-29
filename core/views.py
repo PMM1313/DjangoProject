@@ -21,7 +21,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods, require_POST
 from rest_framework.views import APIView
-
+from django.http import Http404
 from rest_framework.response import Response
 from rest_framework import status, generics
 
@@ -300,7 +300,15 @@ def settle_fixture_manual(request, fixture_id):
 @login_required
 @transaction.atomic
 def confirm_manual_settle(request, fixture_id):
-    fixture = get_object_or_404(Fixture, id=fixture_id)
+
+    try:
+        fixture_id_int = int(fixture_id)
+    except (ValueError, TypeError):
+        raise Http404("Invalid fixture ID format")
+
+        # Query using the verified integer
+    fixture = get_object_or_404(Fixture, fixture_id=fixture_id_int)
+
     if request.method == "POST":
         fixture.home_score = request.POST.get('home_score')
         fixture.away_score = request.POST.get('away_score')
@@ -618,18 +626,18 @@ def imports_tab_page(request):
     country_type = ContentType.objects.get_for_model(Country)
 
     # TRIPLE LOOP: Country -> League -> Match List
-    for c_name, leagues_dict in all_data.items():
+    for c_name, leagues_dict in sorted(all_data.items()):
 
         # Process Country mapping
         mapping = ExternalMapping.objects.filter(external_name=c_name, content_type=country_type).first()
         internal_country = mapping.internal_object if mapping else Country.objects.filter(name__iexact=c_name).first()
         league_wrappers = []
 
-        for l_name, match_list in leagues_dict.items():
+        for l_name, match_list in sorted(leagues_dict.items()):
 
             # 2. Process League mapping
-            mapping = ExternalMapping.objects.filter(external_name=l_name, content_type=league_type).first()
-            internal_league = mapping.internal_object if mapping else League.objects.filter(name__iexact=c_name).first()
+            l_mapping = ExternalMapping.objects.filter(external_name=l_name, content_type=league_type, country=internal_country).first()
+            internal_league = l_mapping.internal_object if l_mapping else League.objects.filter(name__iexact=l_name, country=internal_country).first()
             match_wrappers = []
 
             # 3. Process Teams from Match List
@@ -638,12 +646,12 @@ def imports_tab_page(request):
                 t_away_ext = match.get('awayTeam')
 
                 # Resolve Home Team
-                m_home = ExternalMapping.objects.filter(external_name=t_home_ext, content_type=team_type).first()
-                home_obj = m_home.internal_object if m_home else Team.objects.filter(name__iexact=t_home_ext).first()
+                m_home = ExternalMapping.objects.filter(external_name=t_home_ext, country=internal_country, content_type=team_type).first()
+                home_obj = m_home.internal_object if m_home else Team.objects.filter(name__iexact=t_home_ext, country=internal_country).first()
 
                 # Resolve Away Team
-                m_away = ExternalMapping.objects.filter(external_name=t_away_ext, content_type=team_type).first()
-                away_obj = m_away.internal_object if m_away else Team.objects.filter(name__iexact=t_away_ext).first()
+                m_away = ExternalMapping.objects.filter(external_name=t_away_ext, country=internal_country, content_type=team_type).first()
+                away_obj = m_away.internal_object if m_away else Team.objects.filter(name__iexact=t_away_ext, country=internal_country).first()
 
                 # Create Match Wrapper
                 match_wrappers.append({
@@ -675,12 +683,78 @@ def imports_tab_page(request):
         'source': pending.source,
         'scraped_from': pending.scraped_from,
         'view_data': view_data,
-        'all_teams': Team.objects.all().order_by('name'),
-        'all_leagues': League.objects.all().order_by('name'),
+        'all_teams': Team.objects.all().select_related('country').order_by('name'),
+        'all_leagues': League.objects.all().select_related('country').order_by('name'),
         'all_countries': Country.objects.all().order_by('name'),
     }
 
     return render(request, 'imports_tab/imports_tab_page.html', context)
+
+
+@login_required
+@require_POST
+def save_manual_mappings(request):
+    try:
+        data = json.loads(request.body)
+
+        # --- DEBUG TERMINAL PRINTS ---
+        print("\n" + "🚀" * 15)
+        print("📥 DATA RECEIVED SUCCESSFULLY")
+        print(f"🌍 Countries: {len(data.get('countries', []))}")
+        print(f"🏆 Leagues:   {len(data.get('leagues', []))}")
+        print(f"⚽ Teams:     {len(data.get('teams', []))}")
+        print("🚀" * 15 + "\n")
+
+        country_type = ContentType.objects.get_for_model(Country)
+        league_type = ContentType.objects.get_for_model(League)
+        team_type = ContentType.objects.get_for_model(Team)
+
+        # 1. Process Countries
+        for item in data.get('countries', []):
+            ExternalMapping.objects.get_or_create(
+                external_name=item['external_name'],
+                content_type=country_type,
+                defaults={'object_id': item['internal_id']}
+            )
+
+        # 2. Process Leagues (Safely scoped by context)
+        for item in data.get('leagues', []):
+            # Find the internal country object first to link our mapping properly
+            country_mapping = ExternalMapping.objects.filter(
+                external_name=item['country_context'],
+                content_type=country_type
+            ).first()
+            internal_country = country_mapping.internal_object if country_mapping else None
+
+            ExternalMapping.objects.get_or_create(
+                external_name=item['external_name'],
+                content_type=league_type,
+                country=internal_country,  # <-- Set the optional country relation we built!
+                defaults={'object_id': item['internal_id']}
+            )
+
+        # 3. Process Teams
+        for item in data.get('teams', []):
+            # Track your country context reference to avoid collisions
+            country_mapping = ExternalMapping.objects.filter(
+                external_name=item['country_context'],
+                content_type=country_type
+            ).first()
+            internal_country = country_mapping.internal_object if country_mapping else None
+
+            ExternalMapping.objects.get_or_create(
+                external_name=item['external_name'],
+                content_type=team_type,
+                country=internal_country,
+                defaults={'object_id': item['internal_id']}
+            )
+
+        # Return HTMX response to update page state or trigger an alert
+        return HttpResponse("<script>alert('Mappings Saved Successfully!'); window.location.reload();</script>")
+
+    except Exception as e:
+        print(f"❌ DATABASE ERROR: {str(e)}")
+        return HttpResponse(f"Error: {str(e)}", status=400)
 
 
 @login_required

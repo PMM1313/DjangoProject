@@ -120,7 +120,8 @@ class FixtureService:
                     Fixture.objects.filter(home_id=h_id, away_id=a_id, league_id=league_id).delete()
                     existing_fixtures.discard((h_id, a_id, league_id))
                     # print(f"step 1-3")
-                    continue
+
+                continue
 
             # print(f"step 1-4")
             league_obj = League.objects.filter(id=item["league"]["id"]).select_related('country').first()

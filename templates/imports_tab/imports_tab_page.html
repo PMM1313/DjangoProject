@@ -1,42 +1,197 @@
+<style>
+/* 1. Remove the default browser-specific arrow markers */
+details summary::-webkit-details-marker {
+    display: none;
+}
+details summary {
+    list-style: none;
+}
+
+/* 2. Container for the indicators */
+.accordion-indicators {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* 3. Style the Text Label ("Expand / Collapse") */
+.toggle-text {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: sans-serif;
+    user-select: none;
+}
+
+/* 4. Style the Arrow Symbol */
+.accordion-arrow {
+    font-size: 1.1rem;
+    display: inline-block;
+    transition: transform 0.2s ease-in-out;
+    user-select: none;
+}
+
+/* ==========================================
+   STATE CHANGES (When Accordion Opens/Closes)
+   ========================================== */
+
+/* --- CLOSED STATE VARIATIONS --- */
+details:not([open]) .toggle-text {
+    background-color: #6c757d;
+    color: white;
+}
+details:not([open]) .toggle-text::before {
+    content: "Expand Block";
+}
+details:not([open]) .accordion-arrow {
+    transform: rotate(0deg);
+    color: #6c757d;
+}
+
+/* --- OPEN STATE VARIATIONS --- */
+details[open] .toggle-text {
+    background-color: transparent;
+    color: #333;
+    border: 1px solid #ccc;
+}
+details[open] .toggle-text::before {
+    content: "Collapse Block";
+}
+details[open] .accordion-arrow {
+    transform: rotate(90deg);
+    color: #007bff; /* Clean blue accent when open */
+}
+</style>
+
+
 {% for country in view_data %}
-    <div class="country-block mb-4 border p-3">
-        <h4>{{ country.external_name }} 
-            {% if country.internal_obj %}({{ country.internal_obj.name }}){% endif %}
-        </h4>
+    <details class="country-block"
+         data-external-country="{{ country.external_name }}"
+         style="border: 2px solid black;
+         border-radius: 8px;
+         margin-top: 2rem;
+         margin-bottom: 2rem;
+         padding: 2rem;">
+
+        <summary style="
+            font-size: x-large;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;">
+
+            <div style="width: 160px; visibility: hidden;" aria-hidden="true"></div>
+
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <span>{{ country.external_name }}</span>
+
+                {% if country.internal_obj %}
+                    <span class="internal-country-data"
+                          data-internal-id="{{ country.internal_obj.id }}"
+                          data-internal-name="{{ country.internal_obj.name }}">
+                        ({{ country.internal_obj.name }})
+                    </span>
+                {% else %}
+                    <select class="country-mapper">
+{#                        onclick="event.stopPropagation();#}
+                        <option value="">-- Map Country --</option>
+                        {% for c in all_countries %}
+                            <option value="{{ c.id }}">{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            </div>
+
+            <div class="accordion-indicators" style="display: flex; align-items: center; gap: 12px; width: 160px; justify-content: flex-end;">
+                <span class="toggle-text"></span>
+                <span class="accordion-arrow">▶</span>
+            </div>
+
+        </summary>
 
         {% for league in country.leagues %}
-            <div class="league-block ms-4 mt-2">
-                <h5 class="text-secondary">
-                    {{ league.external_name }}
+            <div class="league-block" data-external-league="{{ league.external_name }}">
+                <div style="
+                    display: flex;
+                    justify-content: left;
+                    gap: 0.5rem;
+                    margin-top: 0.5rem;
+                    margin-bottom: 0.5rem;
+                    margin-left: 0.5rem">
+
+                    <span>{{ league.external_name }}</span>
+
                     {% if league.internal_obj %}
-                        <span class="badge bg-success">Linked: {{ league.internal_obj.name }}</span>
+                        <span class="internal-league-data"
+                              data-internal-id="{{ league.internal_obj.id }}"
+                              data-internal-name="{{ league.internal_obj.name }}">
+                            Linked: {{ league.internal_obj.name }}
+                        </span>
                     {% else %}
-                        <span class="badge bg-danger">Map League Needed</span>
+                        <select class="form-select d-inline-block w-auto league-mapper ms-2">
+                            <option value="">-- Map League --</option>
+                            {% for l in all_leagues %}
+                                {# If country is pre-matched, only show its leagues. If unmatched, show all leagues #}
+                                {% if not country.internal_obj or country.external_name == "World" or l.country.id == country.internal_obj.id %}
+                                    <option value="{{ l.id }}" data-country="{{ l.country.id }}">{{ l.name }} - {{ l.country.name }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
                     {% endif %}
-                </h5>
+                </div>
 
                 <table class="table table-sm">
                     {% for match_wrap in league.matches %}
-                    <tr class="{% if not match_wrap.is_ready %}table-warning{% endif %}">
-                        <td>{{ match_wrap.scraped.time }}</td>
+                    <tr class="fixture-row {% if not match_wrap.is_ready %}table-warning{% endif %}">
 
-                        <td>
+                        <td class="fixture-time" style="padding-left: 0.5rem">
+                            {{ match_wrap.scraped.time }}
+                        </td>
+
+                        <td data-external-team="{{ match_wrap.scraped.homeTeam }}">
                             {{ match_wrap.scraped.homeTeam }}
                             {% if match_wrap.home_obj %}
-                                <i class="fas fa-link text-success"></i> <small>({{ match_wrap.home_obj.name }})</small>
+                                <i class="fas fa-link text-success"></i>
+                                <small class="internal-team-data"
+                                       data-internal-id="{{ match_wrap.home_obj.id }}"
+                                       data-internal-name="{{ match_wrap.home_obj.name }}">
+                                    ({{ match_wrap.home_obj.name }})
+                                </small>
                             {% else %}
-                                <span class="text-danger">???</span>
+                                <select class="form-select form-select-sm d-inline-block w-auto team-mapper ms-1">
+                                    <option value="">-- Map Team --</option>
+                                    {% for t in all_teams %}
+                                        {# If country is pre-matched, only show its teams. If unmatched, show all teams #}
+                                        {% if not country.internal_obj or country.external_name == "World" or t.country.id == country.internal_obj.id %}
+                                            <option value="{{ t.id }}" data-country="{{ t.country.id|default:'' }}">{{ t.name }} - {{ t.country.name|default:"No Country" }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
                             {% endif %}
                         </td>
 
                         <td>vs</td>
 
-                        <td>
+                        <td data-external-team="{{ match_wrap.scraped.awayTeam }}">
                             {{ match_wrap.scraped.awayTeam }}
                             {% if match_wrap.away_obj %}
-                                <i class="fas fa-link text-success"></i> <small>({{ match_wrap.away_obj.name }})</small>
+                                <i class="fas fa-link text-success"></i>
+                                <small class="internal-team-data"
+                                       data-internal-id="{{ match_wrap.away_obj.id }}"
+                                       data-internal-name="{{ match_wrap.away_obj.name }}">
+                                    ({{ match_wrap.away_obj.name }})
+                                </small>
                             {% else %}
-                                <span class="text-danger">???</span>
+                                <select class="form-select form-select-sm d-inline-block w-auto team-mapper ms-1">
+                                    <option value="">-- Map Team --</option>
+                                    {% for t in all_teams %}
+                                        {# If country is pre-matched, only show its teams. If unmatched, show all teams #}
+                                        {% if not country.internal_obj or country.external_name == "World" or t.country.id == country.internal_obj.id %}
+                                            <option value="{{ t.id }}" data-country="{{ t.country.id|default:'' }}">{{ t.name }} - {{ t.country.name|default:"No Country" }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
                             {% endif %}
                         </td>
                     </tr>
@@ -44,5 +199,203 @@
                 </table>
             </div>
         {% endfor %}
-    </div>
+    </details>
 {% endfor %}
+
+<button id="save-mappings-btn"
+        class="btn btn-primary mb-4"
+        hx-post="/imports/save-manual-mappings/"
+{#        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'#}
+        hx-ext="json-enc"
+        hx-vals="js:getManualMappings()"
+        hx-swap="none"
+        hx-on::before-request="this.disabled = true; this.innerHTML = '⌛ Saving Mappings...';"
+        hx-on::after-request="this.disabled = false; this.innerHTML = 'Save Manual Mappings';">
+    Save Manual Mappings
+</button>
+
+<script>
+function getManualMappings() {
+    const payload = {
+        countries: [],
+        leagues: [],
+        teams: [],
+        fixtures: []
+    };
+
+    // --- Single Loop over Countries ---
+    document.querySelectorAll('.country-block').forEach(countryBlock => {
+        const extCountryName = countryBlock.getAttribute('data-external-country');
+
+        // 1. Process Country Mapping
+        let countryId = null;
+        let countryName = null;
+        const countrySelect = countryBlock.querySelector('.country-mapper');
+
+        if (countrySelect && countrySelect.value) {
+            countryId = countrySelect.value;
+            countryName = countrySelect.options[countrySelect.selectedIndex].text.trim();
+        } else {
+            const preMatchedCountry = countryBlock.querySelector('.internal-country-data');
+            if (preMatchedCountry) {
+                countryId = preMatchedCountry.getAttribute('data-internal-id');
+                countryName = preMatchedCountry.getAttribute('data-internal-name');
+            }
+        }
+
+        if (countryId) {
+            payload.countries.push({
+                external_name: extCountryName,
+                internal_id: countryId,
+                internal_name: countryName
+            });
+        }
+
+        // 2. Look DOWNWARDS for Leagues inside this Country Block
+        countryBlock.querySelectorAll('.league-block').forEach(leagueBlock => {
+            const extLeagueName = leagueBlock.getAttribute('data-external-league');
+
+            let leagueId = null;
+            let leagueName = null;
+            const leagueSelect = leagueBlock.querySelector('.league-mapper');
+
+            if (leagueSelect && leagueSelect.value) {
+                leagueId = leagueSelect.value;
+                leagueName = leagueSelect.options[leagueSelect.selectedIndex].text.split(' - ')[0].trim();
+            } else {
+                const preMatchedLeague = leagueBlock.querySelector('.internal-league-data');
+                if (preMatchedLeague) {
+                    leagueId = preMatchedLeague.getAttribute('data-internal-id');
+                    leagueName = preMatchedLeague.getAttribute('data-internal-name');
+                }
+            }
+
+            if (leagueId) {
+                payload.leagues.push({
+                    external_name: extLeagueName,
+                    country_context: extCountryName,
+                    internal_id: leagueId,
+                    internal_name: leagueName
+                });
+            }
+
+            // 3. Look DOWNWARDS for Fixture Rows inside this specific League Block
+            leagueBlock.querySelectorAll('.fixture-row').forEach(row => {
+                const timeVal = row.querySelector('.fixture-time').innerText.trim();
+                const cells = row.querySelectorAll('[data-external-team]');
+                if (cells.length < 2) return; // safety check
+
+                const homeCell = cells[0];
+                const awayCell = cells[1];
+
+                const extHomeName = homeCell.getAttribute('data-external-team');
+                const extAwayName = awayCell.getAttribute('data-external-team');
+
+                // --- Process Home Team Mapping ---
+                let homeId = null;
+                let homeName = null;
+                const homeSelect = homeCell.querySelector('.team-mapper');
+
+                if (homeSelect && homeSelect.value) {
+                    homeId = homeSelect.value;
+                    homeName = homeSelect.options[homeSelect.selectedIndex].text.split(' - ')[0].trim();
+                } else {
+                    const preMatchedHome = homeCell.querySelector('.internal-team-data');
+                    if (preMatchedHome) {
+                        homeId = preMatchedHome.getAttribute('data-internal-id');
+                        homeName = preMatchedHome.getAttribute('data-internal-name');
+                    }
+                }
+
+                if (homeId) {
+                    payload.teams.push({
+                        external_name: extHomeName,
+                        country_context: extCountryName,
+                        league_context: extLeagueName,
+                        internal_id: homeId,
+                        internal_name: homeName
+                    });
+                }
+
+                // --- Process Away Team Mapping ---
+                let awayId = null;
+                let awayName = null;
+                const awaySelect = awayCell.querySelector('.team-mapper');
+
+                if (awaySelect && awaySelect.value) {
+                    awayId = awaySelect.value;
+                    awayName = awaySelect.options[awaySelect.selectedIndex].text.split(' - ')[0].trim();
+                } else {
+                    const preMatchedAway = awayCell.querySelector('.internal-team-data');
+                    if (preMatchedAway) {
+                        awayId = preMatchedAway.getAttribute('data-internal-id');
+                        awayName = preMatchedAway.getAttribute('data-internal-name');
+                    }
+                }
+
+                if (awayId) {
+                    payload.teams.push({
+                        external_name: extAwayName,
+                        country_context: extCountryName,
+                        league_context: extLeagueName,
+                        internal_id: awayId,
+                        internal_name: awayName
+                    });
+                }
+
+                // --- 4. Process Fixture Entry if either team matches ---
+                if (homeId || awayId) {
+                    payload.fixtures.push({
+                        time: timeVal,
+                        country_context: extCountryName,
+                        league_context: extLeagueName,
+                        scraped: {
+                            home_team: extHomeName,
+                            away_team: extAwayName
+                        },
+                        mappings: {
+                            home_internal_id: homeId,
+                            home_internal_name: homeName,
+                            away_internal_id: awayId,
+                            away_internal_name: awayName
+                        }
+                    });
+                }
+            });
+        });
+    });
+
+    return payload;
+}
+
+document.body.addEventListener('change', function(e) {
+    if (e.target.classList.contains('country-mapper')) {
+        const selectedCountryId = e.target.value;
+
+        // Get the text of the selected option (e.g., "World", "England", etc.)
+        const selectedOptionText = e.target.options[e.target.selectedIndex].text.trim();
+
+        const countryBlock = e.target.closest('.country-block');
+        const targetDropdowns = countryBlock.querySelectorAll('.league-mapper, .team-mapper');
+
+        targetDropdowns.forEach(select => {
+            select.value = ""; // Reset current selection on country change
+
+            Array.from(select.options).forEach(option => {
+                if (option.value === "") return; // Skip placeholder
+
+                const optionCountryId = option.getAttribute('data-country');
+
+                // MODIFIED CONDITION: If no country selected OR country is "World", show everything
+                if (!selectedCountryId || selectedOptionText === "World" || optionCountryId === selectedCountryId) {
+                    option.hidden = false;
+                    option.disabled = false;
+                } else {
+                    option.hidden = true;
+                    option.disabled = true;
+                }
+            });
+        });
+    }
+});
+</script>

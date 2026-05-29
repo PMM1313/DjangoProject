@@ -25,12 +25,13 @@ def create_mapping(external_name, model_class, object_id):
     # create_mapping("UK", Country, 1)
 
 
-def get_internal_object(api_name, model_class):
+def get_internal_object(api_name, country,  model_class):
     try:
         model_type = ContentType.objects.get_for_model(model_class)
         mapping = ExternalMapping.objects.get(
             external_name=api_name,
-            content_type=model_type
+            content_type=model_type,
+            country=country
         )
         return mapping.internal_object
     except ExternalMapping.DoesNotExist:

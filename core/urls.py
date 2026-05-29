@@ -26,7 +26,7 @@ urlpatterns = [
     path('fixture/play/<int:fixture_id>/', views.play_match, name='play_match'),
     path('fixture/resolve-match/<int:fixture_id>/', views.resolve_match_view, name='resolve_match'),
     path('fixture/settle/<int:fixture_id>/', views.settle_fixture_manual, name='settle_fixture_manual'),
-    path('fixture/confirm-settle/<int:fixture_id>/', views.confirm_manual_settle, name='confirm_manual_settle'),
+    path('fixture/confirm-settle/<str:fixture_id>/', views.confirm_manual_settle, name='confirm_manual_settle'),
     path('fixture/result-and-status/', views.results_and_statuses_view, name='fetch_scores_and_statuses'),
 
     # distribution tab
@@ -41,6 +41,9 @@ urlpatterns = [
     path('leagues-tab/', views.leagues_tab_page, name='leagues_tab_page'),
 
     path('imports-tab/', views.imports_tab_page, name='imports_tab_page'),
+    # The new target receiver endpoint pattern
+    path('imports/save-manual-mappings/', views.save_manual_mappings, name='save_manual_mappings'),
+
     # path('save-mappings/', views.save_mappings, name='save_single_mapping'),
     # 2. The Partial Update (Only returns <tr> tags for searching/filtering)
     path('leagues-list-partial/', views.leagues_list_partial, name='leagues_list_partial'),

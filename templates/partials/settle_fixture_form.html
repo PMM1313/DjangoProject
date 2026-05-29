@@ -1,24 +1,23 @@
-<!-- 1. Replace the Score with Inputs -->
-<div id="score-area-{{ f.id }}" hx-swap-oob="true" style="display: flex; align-items: center; gap: 5px;">
-    <input type="number" id="home-input-{{ f.id }}" name="home_score" value="{{ f.home_score|default:'' }}"
+
+<div id="score-area-{{ f.fixture_id }}" hx-swap-oob="true" style="display: flex; align-items: center; gap: 5px;">
+    <input type="number" id="home-input-{{ f.fixture_id }}" name="home_score" value="{{ f.home_score|default:'' }}"
            style="width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 4px;">
     <span>:</span>
-    <input type="number" id="away-input-{{ f.id }}" name="away_score" value="{{ f.away_score|default:'' }}"
+    <input type="number" id="away-input-{{ f.fixture_id }}" name="away_score" value="{{ f.away_score|default:'' }}"
            style="width: 45px; text-align: center; border: 1px solid #ccc; border-radius: 4px;">
 </div>
 
-<!-- 2. Replace the Action Cell with Status and Settle Button -->
-<div id="action-shimmer-{{ f.id }}" hx-swap-oob="true" class="action-container" style="flex-direction: column; gap: 8px;">
-    <select id="status-select-{{ f.id }}" name="status" style="padding: 2px; font-size: 12px; width: 100%;">
+<div id="action-shimmer-{{ f.fixture_id }}" hx-swap-oob="true" class="action-container" style="flex-direction: column; gap: 8px;">
+    <select id="status-select-{{ f.fixture_id }}" name="status" style="padding: 2px; font-size: 12px; width: 100%;">
         <option value="Match Finished">Match Finished</option>
         <option value="Postponed">Postponed</option>
         <option value="Cancelled">Cancelled</option>
     </select>
 
     <button class="btn-resolve"
-            hx-post="{% url 'confirm_manual_settle' f.id %}"
-            hx-include="#home-input-{{ f.id }}, #away-input-{{ f.id }}, #status-select-{{ f.id }}"
-            hx-target="#fixture-row-{{ f.id }}"
+            hx-post="{% url 'confirm_manual_settle' f.fixture_id %}"
+            hx-include="#home-input-{{ f.fixture_id }}, #away-input-{{ f.fixture_id }}, #status-select-{{ f.fixture_id }}"
+            hx-target="#fixture-row-{{ f.fixture_id }}"
             hx-swap="outerHTML">
         Settle
     </button>

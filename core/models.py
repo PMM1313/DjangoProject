@@ -411,6 +411,14 @@ class ExternalMapping(models.Model):
         help_text="The name exactly as it comes from the API"
     )
 
+    country = models.ForeignKey(
+        'Country',  # Replace with your actual Country model name
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        help_text="Specify if this external name is country-specific (e.g., Premier League)"
+    )
+
     # 2. The Generic Link to your internal models
     # This allows this row to point to a Team, a League, OR a Country
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
@@ -422,10 +430,11 @@ class ExternalMapping(models.Model):
 
     class Meta:
         # Prevents duplicate mappings for the same external name within the same model type
-        unique_together = ('external_name', 'content_type')
+        unique_together = ('external_name', 'content_type', 'country')
 
     def __str__(self):
-        return f"{self.external_name} -> {self.internal_object}"
+        country_str = f" ({self.country.name})" if self.country else "Unknown"
+        return f"{self.external_name}{country_str} -> {self.internal_object}"
 
 
 class PendingImport(models.Model):
