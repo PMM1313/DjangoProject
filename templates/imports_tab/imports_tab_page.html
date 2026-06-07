@@ -202,15 +202,21 @@ details[open] .accordion-arrow {
     </details>
 {% endfor %}
 
+{#<button id="save-mappings-btn"#}
+{#        class="btn btn-primary mb-4"#}
+{#        hx-post="/imports/save-manual-mappings/"#}
+{#        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'#}
+{#        hx-ext="json-enc"#}
+{#        hx-swap="none"#}
+{#        hx-on:htmx:config-request="event.detail.headers['Content-Type'] = 'application/json'; event.detail.parameters = JSON.stringify(getManualMappings());"#}
+{#        hx-on:htmx:before-request="this.disabled = true; this.innerHTML = '⌛ Saving Mappings...';"#}
+{#        hx-on:htmx:after-request="this.disabled = false; this.innerHTML = 'Save Manual Mappings';">#}
+{#    Save Manual Mappings#}
+{#</button>#}
+
 <button id="save-mappings-btn"
         class="btn btn-primary mb-4"
-        hx-post="/imports/save-manual-mappings/"
-{#        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'#}
-        hx-ext="json-enc"
-        hx-vals="js:getManualMappings()"
-        hx-swap="none"
-        hx-on::before-request="this.disabled = true; this.innerHTML = '⌛ Saving Mappings...';"
-        hx-on::after-request="this.disabled = false; this.innerHTML = 'Save Manual Mappings';">
+        onclick="sendMappingsToServer(this)">
     Save Manual Mappings
 </button>
 
@@ -347,18 +353,16 @@ function getManualMappings() {
                 if (homeId || awayId) {
                     payload.fixtures.push({
                         time: timeVal,
-                        country_context: extCountryName,
-                        league_context: extLeagueName,
-                        scraped: {
-                            home_team: extHomeName,
-                            away_team: extAwayName
-                        },
-                        mappings: {
-                            home_internal_id: homeId,
-                            home_internal_name: homeName,
-                            away_internal_id: awayId,
-                            away_internal_name: awayName
-                        }
+                        country_id: countryId,
+                        country_name: extCountryName,
+                        league_id:leagueId,
+                        league_name: extLeagueName,
+                        home_team_id: homeId,
+                        home_team_external_name: extHomeName,
+                        home_team_internal_name: homeName,
+                        away_team_id: awayId,
+                        away_team_external_name: extAwayName,
+                        away_team_internal_name: awayName
                     });
                 }
             });
@@ -366,6 +370,66 @@ function getManualMappings() {
     });
 
     return payload;
+}
+
+function sendMappingsToServer(buttonEl) {
+    const payload = getManualMappings();
+
+    buttonEl.disabled = true;
+    buttonEl.innerHTML = '⌛ Saving Mappings...';
+
+    fetch('/imports/save-manual-mappings/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.cookie.split('csrftoken=')[1]?.split(';')[0]
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => {
+        return response.json().then(data => ({
+            ok: response.ok,
+            body: data
+        }));
+    })
+    .then(res => {
+        if (res.ok) {
+            // Dispatch directly to document.body so your listener picks it up!
+            document.body.dispatchEvent(new CustomEvent('showToast', {
+                detail: {
+                    text: res.body.message,
+                    level: res.body.status,
+                    new_data: res.body.new_data || null
+                }
+            }));
+
+            // Reset button state
+            buttonEl.disabled = false;
+            buttonEl.innerHTML = 'Save Manual Mappings';
+
+        } else {
+            // Handle server-side errors gracefully with an error toast
+            document.body.dispatchEvent(new CustomEvent('showToast', {
+                detail: {
+                    text: res.body.message || 'Error occurred while saving.',
+                    level: 'error'
+                }
+            }));
+
+            buttonEl.disabled = false;
+            buttonEl.innerHTML = 'Save Manual Mappings';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+
+        document.body.dispatchEvent(new CustomEvent('showToast', {
+            detail: { text: 'Network error or server down.', level: 'error' }
+        }));
+
+        buttonEl.disabled = false;
+        buttonEl.innerHTML = 'Save Manual Mappings';
+    });
 }
 
 document.body.addEventListener('change', function(e) {

@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from decimal import Decimal
+from urllib.parse import urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -49,7 +50,11 @@ if IS_PRODUCTION:
     # Other Prod-only settings
     # SECURITY WARNING: don't run with debug turned on in production!
     DEBUG = False
-    SECURE_SSL_REDIRECT = True
+    # Crucial for Coolify: Let it handle SSL redirection safely
+    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False') == 'True'
+    # This headers configuration tells Django it's securely on HTTPS even if behind the proxy
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
     # Pull from .env: e.g., "mydomain.com,www.mydomain.com"
     ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
@@ -176,6 +181,17 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
+# If running in production container via Coolify, overwrite using the database string URL
+if os.environ.get('DATABASE_URL'):
+    url = urlparse(os.environ.get('DATABASE_URL'))
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': url.path[1:],
+        'USER': url.username,
+        'PASSWORD': url.password,
+        'HOST': url.hostname,
+        'PORT': url.port or 5432,
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
