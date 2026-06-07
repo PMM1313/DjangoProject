@@ -16,8 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy and install Python requirements
 COPY requirements.txt /app/
+
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r requirements.txt \
+    && playwright install --with-deps
 
 # Copy the rest of your application code
 COPY . /app/
