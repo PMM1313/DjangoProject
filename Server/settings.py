@@ -54,9 +54,7 @@ if IS_PRODUCTION:
     SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False') == 'True'
     # This headers configuration tells Django it's securely on HTTPS even if behind the proxy
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-    # Pull from .env: e.g., "mydomain.com,www.mydomain.com"
-    ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
+    USE_X_FORWARDED_HOST = True
 
     # Extra Production Security
     SESSION_COOKIE_SECURE = True
@@ -68,8 +66,15 @@ else:
     AXES_IPWARE_PROXY_COUNT = 0
     DEBUG = True
     SECURE_SSL_REDIRECT = False
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
+
+ALLOWED_HOSTS = [
+    h for h in os.environ.get(
+        "ALLOWED_HOSTS",
+        "localhost,127.0.0.1"
+    ).split(",")
+    if h
+]
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 
