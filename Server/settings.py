@@ -76,6 +76,11 @@ ALLOWED_HOSTS = [
     if h
 ]
 
+CSRF_TRUSTED_ORIGINS = os.environ.get(
+    "CSRF_TRUSTED_ORIGINS",
+    ""
+).split(",")
+
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # API Calls
