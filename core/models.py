@@ -261,6 +261,8 @@ class ArchivedFixture(models.Model):
 class Settings(models.Model):
     # Your single stats
     min_bet = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True, help_text="Minimum bet")
+    avg_coefficient = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True,
+                                          help_text="Average coefficient")
     avg_perc_draw = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True,
                                         help_text="Average percentage draw per round")
     rounds_for_earning_back = models.IntegerField(default=0, help_text="Round to earn back")

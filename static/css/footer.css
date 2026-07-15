@@ -1,0 +1,51 @@
+/* Footer Container */
+.app-footer {
+    margin-top: auto;
+    border-top: 1px solid #e5e7eb;
+    background-color: #f9fafb;
+    padding: 16px 0;
+    text-align: center;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+/* Flexbox alignment for items inside */
+.footer-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+/* The version chip style */
+.footer-version {
+    font-family: monospace;
+    background-color: #e5e7eb;
+    color: #374151;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+/* Desktop layout adjustment */
+@media (min-width: 640px) {
+    .footer-content {
+        flex-direction: row;
+        gap: 16px;
+    }
+
+    .footer-divider {
+        display: inline;
+        color: #d1d5db;
+    }
+}
+
+/* Hide the divider bar on small mobile screens */
+@media (max-width: 639px) {
+    .footer-divider {
+        display: none;
+    }
+}

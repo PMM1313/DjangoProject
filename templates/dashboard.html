@@ -146,12 +146,17 @@
                         <input type="date" name="date_to" value="{{ date_to }}" required style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
                     </div>
 
-                    <button type="submit" name="fetch_range" value="1" class="btn-sync-range">
+                    <button type="submit"
+                            name="fetch_range"
+                            value="1"
+                            hx-indicator="this"
+                            class="btn-sync-range">
                         <span class="sync-loader">⏳</span>
-                        <span>🔄 Sync Range</span>
+                        <span>Get Fixtures !</span>
                     </button>
 
-                    <button class="fetch_scores_and_statuses"
+                    <button type="button"
+                            class="fetch_scores_and_statuses"
                             data-hx-get="{% url 'fetch_scores_and_statuses' %}"
                             data-hx-target="#fixture-container"
                             data-hx-indicator="this">
@@ -175,127 +180,10 @@
             </div>
         </div>
 
-        {{ initial_recoveries|json_script:"recovery-data-json" }}
-        <div class="distribution"
-             x-data
-             x-init="$store.distribution.initData(JSON.parse(document.getElementById('recovery-data-json').textContent))"
-            style="display: flex; flex-direction: column; min-height: 50px; align-items: center; border: 1px solid #ddd; border-radius: 8px; background: #fff; margin-bottom: 20px; margin-top: 20px; padding: 0 15px;">
-
-
-
-            <div class="distribution_name_and_options" style="display: flex; width: 100%; background: #f8f9fa; border-bottom: 2px solid #eee; padding: 12px 15px; letter-spacing: 0.025em; font-weight: bold; font-size: 1.25rem; align-items: center; justify-content: space-between;">
-                <span>
-                    Distribution Table
-                </span>
-
-                <label style="font-size: 0.9rem; font-weight: normal; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
-                    <input type="checkbox"
-                           x-model="$store.distribution.showAll"
-                           @change="$store.distribution.refreshTable()"
-                           style="width: 18px; height: 18px;">
-                    Show All Entries
-                </label>
-            </div>
-
-
-
-            <div class="table-header flex-header"
-                 x-show="$store.distribution.items.length > 0"
-                 x-transition.opacity.duration.300ms
-                 style="display: flex; width: 100%; background: #f8f9fa; border-bottom: 2px solid #eee; padding: 12px 15px; font-weight: normal; font-size: 0.60rem; color: #4a5568; text-transform: uppercase; letter-spacing: 0.025em;">
-                <div style="flex: 2;">Team Name</div>
-                <div style="flex: 1; text-align: center;">For Recover</div>
-                <div style="flex: 1; text-align: center;">Recovered</div>
-                <div style="flex: 1; text-align: center;">Manual Plus</div>
-                <div style="flex: 1; text-align: center;">Remaining</div>
-                <div style="flex: 1; text-align: center;">Fixtures Played</div>
-                <div style="flex: 1; text-align: center;">Fixtures Recovered</div>
-                <div style="flex: 2; text-align: center;">Added Date</div>
-                <div style="flex: 2; text-align: center;">Recovered</div>
-            </div>
-
-            <div x-show="$store.distribution.items.length === 0"
-                 x-transition:enter.duration.400ms.scale.80
-                 x-transition:leave.duration.200ms.opacity
-                 style="padding: 30px; color: #888; text-align: center; width: 100%;">
-                <span>No teams for distribution</span>
-            </div>
-
-            <template x-for="item in $store.distribution.items" :key="item.id">
-
-                <div class="recovery-card" style="display: flex; width: 100%; align-items: center; padding-top: 5px; padding-bottom: 5px;">
-
-                    <div style="flex: 2; font-weight: 600; color: #2d3748;" x-text="item.team_name"></div>
-
-                    <div style="flex: 1; text-align: center; color: #4a5568;" x-text="$store.distribution.money(item.bets_writen_off)"></div>
-                    <div style="flex: 1; text-align: center; color: #38a169;" x-text="$store.distribution.money(item.bets_recovered)"></div>
-                    <div style="flex: 1; text-align: center; color: #38a169;" x-text="$store.distribution.money(item.manual_plus)"></div>
-                    <div style="flex: 1; text-align: center; font-weight: bold; color: #e53e3e;" x-text="$store.distribution.money(item.bets_to_recover)"></div>
-
-                    <div style="flex: 1; text-align: center; color: #718096;" x-text="item.fixtures_played"></div>
-                    <div style="flex: 1; text-align: center; color: #718096;" x-text="item.fixtures_recovered"></div>
-
-                    <div style="flex: 2; text-align: center; color: #718096; font-size: 0.8rem;">
-                        <span x-text="item.date_added"></span>
-                    </div>
-
-                    <div style="display:flex; flex: 2; text-align: center; color: #718096; font-size: 0.8rem; justify-content: center;">
-                        <template x-if="item.is_recovered">
-                            <div style="color: #38a169; font-weight: bold; font-size: 0.75rem; display: flex; align-items: center;">
-                                <span style="font-size: 1rem; margin-right: 3px;">✔</span> RECOVERED
-                            </div>
-                        </template>
-
-                        <template x-if="!item.is_recovered">
-                            <div style="color: #e53e3e; font-weight: bold; font-size: 0.75rem; display: flex; align-items: center;">
-                                <span style="font-size: 1rem; margin-right: 3px;">✘</span> PENDING
-                            </div>
-                        </template>
-                    </div>
-
-                    <div style="flex: 0.5; text-align: right; position: relative;">
-                        <button @click="$store.distribution.openRecoveryModal(item.id)"
-                                style="background: none; border: none; cursor: pointer; font-size: 1.5rem; color: #718096; padding: 0 10px;">
-                            ⋮
-                        </button>
-                    </div>
-
-                </div>
-            </template>
-
-            <div x-cloak x-show="$store.distribution.modalOpen"
-             x-transition.opacity
-             style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999;">
-
-                <div @click.away="$store.distribution.modalOpen = false"
-                     style="background: white; padding: 25px; border-radius: 12px; width: 300px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-
-                    <h3 style="margin-top: 0;">Add Recovery</h3>
-                    <p style="font-size: 0.9rem; color: #666;">Enter amount for ID: <span x-text="$store.distribution.selectedId"></span></p>
-
-                    <form hx-post="/update_recovery_amount_manual_plus/"
-                          hx-trigger="submit"
-                          hx-swap="none"
-                          @htmx:after-request="$store.distribution.modalOpen = false">
-
-                        <input type="hidden" name="item_id" :value="$store.distribution.selectedId">
-
-                        <input type="number" step="0.01" name="amount" required autofocus
-                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px; font-size: 1.1rem;">
-
-                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                            <button type="button" @click="$store.distribution.modalOpen = false"
-                                    style="padding: 8px 15px; background: #eee; border: none; border-radius: 6px; cursor: pointer;">
-                                Cancel
-                            </button>
-                            <button type="submit"
-                                    style="padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                                Save
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+        <div hx-get="{% url 'get_distribution_partial' %}"
+             hx-trigger="load"
+             hx-swap="outerHTML">
+             <div style="padding: 30px; text-align: center; color: #888;">⏳ Loading Distribution Table...</div>
         </div>
 
         <div class="table-buttons-container">
@@ -318,11 +206,17 @@
 
             <button class="btn-summary"
                     hx-get="{% url 'add_manual_fixture' %}"
-                    hx-target="#form-container">
+                    hx-target="#form-container"
+                    hx-trigger="click[!document.getElementById('add-manual-fixture-container').classList.contains('expanded')]"
+                    hx-on:click="if(document.getElementById('add-manual-fixture-container').classList.contains('expanded')) {
+                        document.getElementById('add-manual-fixture-container').classList.remove('expanded');
+                        event.preventDefault(); /* Stops htmx from firing the network request when closing */
+                    }"
+                    hx-on:htmx:after-on-load="document.getElementById('add-manual-fixture-container').classList.add('expanded');">
                 Add Manual Fixture
             </button>
 
-            <div id="form-container"></div>
+
 
         </div>
 
@@ -338,11 +232,18 @@
             </div>
         </div>
 
+        <div id="add-manual-fixture-container">
+            <div id="form-container">
+            <!-- htmx will inject the form template here -->
+            </div>
+        </div>
+
         <div id="fixture-container" data-hx-get="{% url 'fixtures_partial' %}" data-hx-trigger="load">
             <div style="text-align: center; padding: 40px;">
                 <div class="loader"></div> <p style="color: #666; margin-top: 10px;">Fetching latest fixtures...</p>
             </div>
         </div>
+
     </div>
 
     <div id="teams-tab" class="tab-content" style="display: none;">

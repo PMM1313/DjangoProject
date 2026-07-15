@@ -16,7 +16,7 @@ urlpatterns = [
     # Teams Logic
     path("teams/", views.TeamListCreateView.as_view(), name="team-list-create"),
     path("teams/<int:team_id>/", views.TeamDetailView.as_view(), name="team-detail"),
-    path('teams/distribution/', views.teams_distribution_view, name='distribution_table'),
+
     path('team/fixtures/<int:team_id>/', views.team_fixtures_view, name='team_fixtures'),
 
     # Fixtures & Match Logic
@@ -29,8 +29,15 @@ urlpatterns = [
     path('fixture/confirm-settle/<str:fixture_id>/', views.confirm_manual_settle, name='confirm_manual_settle'),
     path('fixture/result-and-status/', views.results_and_statuses_view, name='fetch_scores_and_statuses'),
 
+    # for recoveries table in the fixtures tab
+    # Used by hx-trigger="load" to render the initial table
+    path('get-distribution-partial/', views.get_distribution_partial, name='get_distribution_partial'),
+    # Used by your creation form submission
+    path('for-distribution/', views.for_distribution_view, name='for_distribution'),
+
     # distribution tab
-    path('for_distribution/', views.for_distribution_view, name='for_distribution'),
+    path('teams/distribution/', views.teams_distribution_view, name='distribution_table'),
+
     path('equalize-in-range/', views.equalize_in_range, name='equalize_in_range'),
 
 

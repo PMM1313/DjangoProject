@@ -11,7 +11,7 @@ django.setup()
 from core.models import ArchivedFixture
 
 from core.models import ArchivedFixture, League, Fixture
-from core.services import fixture
+from core.services import fixture, bet
 from core.services.team import TeamService
 
 
@@ -74,5 +74,11 @@ def test_equalizing_bets():
         print(f'No Errors !!!')
 
 
+def test_simulating_all_bets():
+    nd_count = 5
+    all_bets = bet.calculate_total_bets_based_on_no_draw_count(nd_count)
+    print(all_bets)
+
+
 if __name__ == "__main__":
-    test_equalizing_bets()
+    test_simulating_all_bets()

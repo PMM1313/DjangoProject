@@ -1,0 +1,27 @@
+<div id="recovery-row-{{ item.id }}" class="recovery-card" style="display: flex; width: 100%; align-items: center; padding: 5px 0;">
+    <div style="flex: 2; font-weight: 600; color: #2d3748;">{{ item.team_name }}</div>
+    <div style="flex: 1; text-align: center;">{{ item.bets_writen_off }}</div>
+    <div style="flex: 1; text-align: center; color: #38a169;">{{ item.bets_recovered }}</div>
+    <div style="flex: 1; text-align: center; color: #38a169;">{{ item.manual_plus }}</div>
+    <div style="flex: 1; text-align: center; font-weight: bold; color: #e53e3e;">{{ item.bets_to_recover }}</div>
+    <div style="flex: 1; text-align: center; color: #718096;">{{ item.fixtures_played }}</div>
+    <div style="flex: 1; text-align: center; color: #718096;">{{ item.fixtures_recovered }}</div>
+    <div style="flex: 2; text-align: center; color: #718096; font-size: 0.8rem;">{{ item.date_added }}</div>
+
+    <div style="display:flex; flex: 2; justify-content: center;">
+        {% if item.is_recovered %}
+            <span style="color: #38a169; font-weight: normal;">✔ RECOVERED</span>
+        {% else %}
+            <span style="color: #e53e3e; font-weight: normal;">✘ PENDING</span>
+        {% endif %}
+    </div>
+
+    <div style="flex: 0.5; text-align: right; position: relative;" x-data="{ dropdownOpen: false }">
+        <button @click="dropdownOpen = !dropdownOpen" @click.away="dropdownOpen = false" style="background: none; border: none; cursor: pointer; font-size: 1.5rem; color: #718096; padding: 0 10px;">⋮</button>
+        <div x-cloak x-show="dropdownOpen" x-transition style="position: absolute; right: 10px; top: 100%; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 190px; z-index: 1000; text-align: left; padding: 4px 0;">
+            <button type="button" @click="dropdownOpen = false; openModal('{{ item.id }}')" style="width: 100%; padding: 10px 15px; background: none; border: none; text-align: left; font-size: 0.9rem; color: #2d3748; cursor: pointer;">
+                Manual Recovery
+            </button>
+        </div>
+    </div>
+</div>

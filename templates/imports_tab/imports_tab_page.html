@@ -69,8 +69,7 @@ details[open] .accordion-arrow {
          data-external-country="{{ country.external_name }}"
          style="border: 2px solid black;
          border-radius: 8px;
-         margin-top: 2rem;
-         margin-bottom: 2rem;
+         margin: 2rem 1.5rem;
          padding: 2rem;">
 
         <summary style="
@@ -222,11 +221,26 @@ details[open] .accordion-arrow {
 
 <script>
 function getManualMappings() {
-    const payload = {
-        countries: [],
-        leagues: [],
-        teams: [],
-        fixtures: []
+    const payload = { countries: [], leagues: [], teams: [], fixtures: [] };
+
+    // Tiny helper to handle the "Select Box OR Pre-matched Attribute" logic
+    const resolveMapping = (container, selectClass, preMatchedClass) => {
+        const select = container.querySelector(selectClass);
+        if (select && select.value) {
+            return {
+                id: select.value,
+                // Split handles the ' - ' cleanup safely for leagues/teams
+                name: select.options[select.selectedIndex].text.split(' - ')[0].trim()
+            };
+        }
+        const preMatched = container.querySelector(preMatchedClass);
+        if (preMatched) {
+            return {
+                id: preMatched.getAttribute('data-internal-id'),
+                name: preMatched.getAttribute('data-internal-name')
+            };
+        }
+        return { id: null, name: null };
     };
 
     // --- Single Loop over Countries ---
@@ -234,135 +248,78 @@ function getManualMappings() {
         const extCountryName = countryBlock.getAttribute('data-external-country');
 
         // 1. Process Country Mapping
-        let countryId = null;
-        let countryName = null;
-        const countrySelect = countryBlock.querySelector('.country-mapper');
+        const country = resolveMapping(countryBlock, '.country-mapper', '.internal-country-data');
 
-        if (countrySelect && countrySelect.value) {
-            countryId = countrySelect.value;
-            countryName = countrySelect.options[countrySelect.selectedIndex].text.trim();
-        } else {
-            const preMatchedCountry = countryBlock.querySelector('.internal-country-data');
-            if (preMatchedCountry) {
-                countryId = preMatchedCountry.getAttribute('data-internal-id');
-                countryName = preMatchedCountry.getAttribute('data-internal-name');
-            }
-        }
-
-        if (countryId) {
+        if (country.id) {
             payload.countries.push({
                 external_name: extCountryName,
-                internal_id: countryId,
-                internal_name: countryName
+                internal_id: country.id,
+                internal_name: country.name
             });
         }
 
-        // 2. Look DOWNWARDS for Leagues inside this Country Block
+        // 2. Look DOWNWARDS for Leagues
         countryBlock.querySelectorAll('.league-block').forEach(leagueBlock => {
             const extLeagueName = leagueBlock.getAttribute('data-external-league');
+            const league = resolveMapping(leagueBlock, '.league-mapper', '.internal-league-data');
 
-            let leagueId = null;
-            let leagueName = null;
-            const leagueSelect = leagueBlock.querySelector('.league-mapper');
-
-            if (leagueSelect && leagueSelect.value) {
-                leagueId = leagueSelect.value;
-                leagueName = leagueSelect.options[leagueSelect.selectedIndex].text.split(' - ')[0].trim();
-            } else {
-                const preMatchedLeague = leagueBlock.querySelector('.internal-league-data');
-                if (preMatchedLeague) {
-                    leagueId = preMatchedLeague.getAttribute('data-internal-id');
-                    leagueName = preMatchedLeague.getAttribute('data-internal-name');
-                }
-            }
-
-            if (leagueId) {
+            if (league.id) {
                 payload.leagues.push({
                     external_name: extLeagueName,
                     country_context: extCountryName,
-                    internal_id: leagueId,
-                    internal_name: leagueName
+                    internal_id: league.id,
+                    internal_name: league.name
                 });
             }
 
-            // 3. Look DOWNWARDS for Fixture Rows inside this specific League Block
+            // 3. Look DOWNWARDS for Fixture Rows
             leagueBlock.querySelectorAll('.fixture-row').forEach(row => {
-                const timeVal = row.querySelector('.fixture-time').innerText.trim();
+                const timeVal = (row.querySelector('.fixture-time')?.innerText || "").trim();
                 const cells = row.querySelectorAll('[data-external-team]');
                 if (cells.length < 2) return; // safety check
 
-                const homeCell = cells[0];
-                const awayCell = cells[1];
-
+                const [homeCell, awayCell] = cells;
                 const extHomeName = homeCell.getAttribute('data-external-team');
                 const extAwayName = awayCell.getAttribute('data-external-team');
 
-                // --- Process Home Team Mapping ---
-                let homeId = null;
-                let homeName = null;
-                const homeSelect = homeCell.querySelector('.team-mapper');
+                // --- Process Home & Away Team Mappings dynamically ---
+                const home = resolveMapping(homeCell, '.team-mapper', '.internal-team-data');
+                const away = resolveMapping(awayCell, '.team-mapper', '.internal-team-data');
 
-                if (homeSelect && homeSelect.value) {
-                    homeId = homeSelect.value;
-                    homeName = homeSelect.options[homeSelect.selectedIndex].text.split(' - ')[0].trim();
-                } else {
-                    const preMatchedHome = homeCell.querySelector('.internal-team-data');
-                    if (preMatchedHome) {
-                        homeId = preMatchedHome.getAttribute('data-internal-id');
-                        homeName = preMatchedHome.getAttribute('data-internal-name');
-                    }
-                }
-
-                if (homeId) {
+                if (home.id) {
                     payload.teams.push({
                         external_name: extHomeName,
                         country_context: extCountryName,
                         league_context: extLeagueName,
-                        internal_id: homeId,
-                        internal_name: homeName
+                        internal_id: home.id,
+                        internal_name: home.name
                     });
                 }
 
-                // --- Process Away Team Mapping ---
-                let awayId = null;
-                let awayName = null;
-                const awaySelect = awayCell.querySelector('.team-mapper');
-
-                if (awaySelect && awaySelect.value) {
-                    awayId = awaySelect.value;
-                    awayName = awaySelect.options[awaySelect.selectedIndex].text.split(' - ')[0].trim();
-                } else {
-                    const preMatchedAway = awayCell.querySelector('.internal-team-data');
-                    if (preMatchedAway) {
-                        awayId = preMatchedAway.getAttribute('data-internal-id');
-                        awayName = preMatchedAway.getAttribute('data-internal-name');
-                    }
-                }
-
-                if (awayId) {
+                if (away.id) {
                     payload.teams.push({
                         external_name: extAwayName,
                         country_context: extCountryName,
                         league_context: extLeagueName,
-                        internal_id: awayId,
-                        internal_name: awayName
+                        internal_id: away.id,
+                        internal_name: away.name
                     });
                 }
 
-                // --- 4. Process Fixture Entry if either team matches ---
-                if (homeId || awayId) {
+                // --- 4. Process Fixture Entry ---
+                if (home.id || away.id) {
                     payload.fixtures.push({
                         time: timeVal,
-                        country_id: countryId,
+                        country_id: country.id,
                         country_name: extCountryName,
-                        league_id:leagueId,
+                        league_id: league.id,
                         league_name: extLeagueName,
-                        home_team_id: homeId,
+                        home_team_id: home.id,
                         home_team_external_name: extHomeName,
-                        home_team_internal_name: homeName,
-                        away_team_id: awayId,
+                        home_team_internal_name: home.name,
+                        away_team_id: away.id,
                         away_team_external_name: extAwayName,
-                        away_team_internal_name: awayName
+                        away_team_internal_name: away.name
                     });
                 }
             });

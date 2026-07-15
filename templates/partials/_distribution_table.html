@@ -1,0 +1,52 @@
+<div class="distribution"
+     x-data="{ modalOpen: false, selectedId: null, openModal(id) { this.selectedId = id; this.modalOpen = true; } }"
+     style="display: flex;
+     flex-direction: column;
+     border: 1px solid #ddd;
+     border-radius: 8px;
+     background: #fff;
+     margin-top: 20px;
+     padding: 0 15px;">
+
+    <div class="table-header" style="display: flex; background: #f8f9fa; padding: 12px 15px; font-weight: normal; font-size: 0.60rem; color: #4a5568; text-transform: uppercase;">
+        <div style="flex: 2;">Team Name</div>
+        <div style="flex: 1; text-align: center;">For Recover</div>
+        <div style="flex: 1; text-align: center;">Recovered</div>
+        <div style="flex: 1; text-align: center;">Manual Plus</div>
+        <div style="flex: 1; text-align: center;">Remaining</div>
+        <div style="flex: 1; text-align: center;">Fixtures Played</div>
+        <div style="flex: 1; text-align: center;">Fixtures Recovered</div>
+        <div style="flex: 2; text-align: center;">Added Date</div>
+        <div style="flex: 2; text-align: center;">Status</div>
+        <div style="flex: 0.5;"></div>
+    </div>
+
+    <div id="distribution-rows-container">
+        {% for item in initial_recoveries %}
+            {% include "partials/_distribution_row.html" %}
+        {% empty %}
+            <div style="padding: 30px; color: #888; text-align: center;">No teams for distribution</div>
+        {% endfor %}
+    </div>
+
+    <div x-cloak x-show="modalOpen" x-transition.opacity style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+        <div @click.away="modalOpen = false" style="background: white; padding: 25px; border-radius: 12px; width: 300px;">
+            <h3 style="margin-top: 0;">Add Manual Recovery</h3>
+
+            <form hx-post="/update_recovery_amount_manual_plus/"
+                  hx-target="js:document.getElementById('recovery-row-' + document.getElementById('modal-item-id').value)"
+                  hx-swap="outerHTML"
+                  @htmx:after-request="if($event.detail.successful) modalOpen = false;">
+
+                <input type="hidden" name="item_id" id="modal-item-id" :value="selectedId">
+
+                <input type="number" step="0.01" name="amount" required autofocus style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px;">
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" @click="modalOpen = false" style="padding: 8px 15px; background: #eee; border: none; border-radius: 6px;">Cancel</button>
+                    <button type="submit" style="padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 6px;">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

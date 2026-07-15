@@ -25,6 +25,7 @@
         <link rel="stylesheet" href="{% static 'css/loading_spinner.css' %}">
         <link rel="stylesheet" href="{% static 'css/fixtures_tab/fixture_row_skeleton_loading.css' %}">
         <link rel="stylesheet" href="{% static 'css/fixtures_tab/distribution_table.css' %}">
+        <link rel="stylesheet" href="{% static 'css/footer.css' %}">
 
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <script src="https://unpkg.com/htmx.org@2.0.0"></script>
@@ -108,9 +109,11 @@
         {% block extra_css %}{% endblock %}
     </head>
 
-  <div id="toast-container"></div>
+
 
   <body data-hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+    <div id="toast-container"></div>
     
     <nav style="padding: 10px 20px; background: #eee; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc;">
 
@@ -141,6 +144,16 @@
     <main>
       {% block content %}{% endblock %}
     </main>
+
+
+
+    <footer class="app-footer">
+      <div class="footer-content">
+        <span class="footer-copyright">&copy; {% now "Y" %} My Dashboard. All rights reserved.</span>
+        <span class="footer-divider">|</span>
+        <span class="footer-version">v1.0.0</span>
+      </div>
+    </footer>
 
     {% include "partials/_loader.html" %}
     {% block extra_js %}{% endblock %}

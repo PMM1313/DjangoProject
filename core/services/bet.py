@@ -1,31 +1,39 @@
 from decimal import Decimal
 from django.db.models import Sum
-from ..models import Team
+from ..models import Team, Settings
+from decimal import Decimal, ROUND_HALF_UP, ROUND_UP
 
 
-def calculate_required_bet(team_id, multiplier):
-    # 1. Constants
-    MIN_BET = Decimal('0.28')
-    PROFIT_MARGIN = Decimal('1.1')  # The 10% buffer
+def calculate_total_bets_based_on_no_draw_count(no_draw_count: int):
+    settings = Settings.load()
+    min_bet = settings.min_bet
+    coef = Decimal("3.60")
+    all_bets = Decimal("0.00")
 
-    # 2. Get past bets from Postgres
-    past_bets_data = Team.objects.filter(team_id=team_id).aggregate(Sum('amount'))
-    past_bets = past_bets_data['amount__sum'] or Decimal('0.00')
+    for play in range(1, no_draw_count + 1):
+        bet = calculate_required_bet(all_bets, coef)
+        all_bets += bet
 
-    mult = Decimal(str(multiplier))
-
-    # 3. Guard against impossible math
-    if mult <= PROFIT_MARGIN:
-        raise ValueError(f"Multiplier must be greater than {PROFIT_MARGIN}")
-
-    # 4. Calculate the required bet using our formula
-    # bet = (past * 1.1) / (mult - 1.1)
-    calculated_bet = (past_bets * PROFIT_MARGIN) / (mult - PROFIT_MARGIN)
-
-    # 5. Logic: Use the higher of the two (Calculated vs Minimum)
-    final_bet = max(calculated_bet, MIN_BET)
-
-    # 6. Format to 2 decimal places
-    return final_bet.quantize(Decimal('0.01'))
+    return all_bets, min_bet, coef
 
 
+def calculate_required_bet(team_all_bets, coef):
+    """
+    Algebraic Formula: Bet = (AllBets * 1.10) / (Coef - 1.10)
+    Calculates the stake needed to cover past losses + 10% markup on total.
+    """
+    # from .models import Settings  # Local import to avoid circularity
+
+    # 1. Fetch baseline from Settings
+    settings = Settings.load()
+    min_bet = settings.min_bet
+
+    # The Formula Implementation
+    numerator = team_all_bets * Decimal('1.10')
+    denominator = coef - Decimal('1.10')
+
+    calculated_bet = numerator / denominator
+
+    # Apply "Floor" (min_bet) and round to 2 decimal places
+    final_bet = max(calculated_bet, min_bet)
+    return final_bet.quantize(Decimal('0.01'), rounding=ROUND_UP)

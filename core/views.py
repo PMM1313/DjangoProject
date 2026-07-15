@@ -19,7 +19,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.core.exceptions import ObjectDoesNotExist
 # Create your views here.
 from django.template.loader import render_to_string
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_http_methods, require_POST, require_GET
 from rest_framework.views import APIView
 from django.http import Http404
 from rest_framework.response import Response
@@ -437,6 +437,7 @@ def team_fixtures_view(request, team_id):
     return render(request, 'partials/fixture_list.html', {'team': team})
 
 
+# distribution tab
 @login_required
 def teams_distribution_view(request):
     # 1. Fetch all active teams
@@ -473,64 +474,76 @@ def teams_distribution_view(request):
 
 
 @login_required
+@require_GET  # <--- This handles the hx-trigger="load"
+def get_distribution_partial(request):
+    recoveries = ForRecover.objects.all().order_by('-date_added_to_recover')
+    return render(request, "partials/_distribution_table.html", {
+        "initial_recoveries": recoveries
+    })
+
+
+@login_required
+@require_POST
 def for_distribution_view(request):
     team_id = request.POST.get("team_id")
     value_str = request.POST.get("for_distribution")
 
     # 1. Validation
     if not team_id or not value_str:
-        return toast_response("Missing required data.", "error", 400)
+        return render(request, "partials/_toast.html", {"message": "Missing required data.", "status": "error"},
+                      status=400)
 
     try:
         value = Decimal(value_str)
     except (InvalidOperation, TypeError):
-        return toast_response("Invalid number format.", "error", 400)
+        return render(request, "partials/_toast.html", {"message": "Invalid number format.", "status": "error"},
+                      status=400)
 
     team = get_object_or_404(Team, id=team_id)
 
     # 2. Business Logic with Transaction
     try:
         with transaction.atomic():
-            # Subtract from Team (handling potential None value)
             current_bets = team.all_bets or Decimal('0.00')
             team.all_bets = current_bets - value
             team.save()
 
-            # Create the Recovery Record
             ForRecover.objects.create(
                 team_id=team.id,
                 team_name=team.name,
                 bets_writen_off=value
             )
 
-            # 3. Success Response
-            # Fetch all recovery entries to update the UI
-            # We manually build the list to include the 'bets_to_recover' property
-            recoveries = ForRecover.objects.all().order_by('-date_added_to_recover')
+        # 3. SUCCESS RESPONSE (The Clean HTMX Way)
+        # Fetch the fresh, updated database rows
+        recoveries = ForRecover.objects.all().order_by('-date_added_to_recover')
 
-            data_list = []
-            for r in recoveries:
-                data_list.append({
-                    "id": r.id,
-                    "team_name": r.team_name,
-                    "bets_writen_off": float(r.bets_writen_off),
-                    "bets_recovered": float(r.bets_recovered),
-                    "bets_to_recover": float(r.bets_to_recover),
-                    "is_recovered": r.is_recovered,
-                    "date_added": r.date_added_to_recover.strftime("%Y-%m-%d %H:%M"),  # Match 'date_added'
-                    "fixtures_played": 0,  # Add this if you track it, or it will be undefined
-                })
+        context = {
+            "initial_recoveries": recoveries,
+            "success_toast": f"Created entry for {team.name} successfully!"
+        }
 
-            return toast_response(
-                f"Created entry for {team.name} successfully!",
-                "success",
-                200,
-                data=data_list
-            )
+        # Return the whole refreshed table component directly to the screen
+        return render(request, "partials/_distribution_table.html", context)
 
     except Exception as e:
-        # Fallback for database errors
-        return toast_response(f"Database error: {str(e)}", "error", 500)
+        return render(request, "partials/_toast.html", {"message": f"Database error: {str(e)}", "status": "error"},
+                      status=500)
+
+
+@login_required
+@require_POST
+def update_recovery_amount_manual_plus(request):
+    item_id = request.POST.get('item_id')
+    amount = float(request.POST.get('amount', 0))
+
+    # 1. Fetch and update the DB row
+    recovery = ForRecover.objects.get(id=item_id)
+    recovery.manual_plus += amount
+    recovery.save()
+
+    # 2. Return ONLY the single row template piece with the updated row object
+    return render(request, "partials/_distribution_row.html", {"item": recovery})
 
 
 def toast_response(message, level="success", status_code=200, data=None):
@@ -710,64 +723,100 @@ def save_manual_mappings(request):
         print(f"⚽ Teams:     {len(data.get('teams', []))}")
         print(f"⚽ Fixtures:  {len(data.get('fixtures', []))}")
 
-        for fixture in data.get('fixtures', []):
-            print(fixture)
-
-        print("🚀" * 15 + "\n")
+        # for fixture in data.get('fixtures', []):
+        #     print(fixture)
+        #
+        # print("🚀" * 15 + "\n")
 
         country_type = ContentType.objects.get_for_model(Country)
         league_type = ContentType.objects.get_for_model(League)
         team_type = ContentType.objects.get_for_model(Team)
 
-        # 1. Process Countries (Switch to update_or_create)
-        for item in data.get('countries', []):
-            ExternalMapping.objects.update_or_create(
-                external_name=item['external_name'],
-                content_type=country_type,
-                defaults={'object_id': item['internal_id']}  # <-- Will overwrite object_id if found!
-            )
+        updated_counts = {"countries": 0, "leagues": 0, "teams": 0}
 
-        # 2. Process Leagues (Switch to update_or_create)
-        for item in data.get('leagues', []):
-            country_mapping = ExternalMapping.objects.filter(
-                external_name=item['country_context'],
+        # 1. Extract all country contexts to pre-fetch them in ONE query
+        country_names = set()
+        for key in ['leagues', 'teams']:
+            for item in data.get(key, []):
+                if item.get('internal_id') and item.get('country_context'):
+                    country_names.add(item['country_context'])
+
+        # Pre-fetch all relevant country mappings into an in-memory dictionary
+        # Key: external_name, Value: Country object
+        country_mappings_dict = {}
+        if country_names:
+            country_mappings = ExternalMapping.objects.filter(
+                external_name__in=country_names,
                 content_type=country_type
-            ).first()
-            internal_country = country_mapping.internal_object if country_mapping else None
+            ).select_related('content_type')  # uses generic relation helper
 
-            ExternalMapping.objects.update_or_create(
-                external_name=item['external_name'],
-                content_type=league_type,
-                country=internal_country,
-                defaults={'object_id': item['internal_id']}
-            )
+            for mapping in country_mappings:
+                country_mappings_dict[mapping.external_name] = mapping.internal_object
 
-        # 3. Process Teams (Switch to update_or_create)
-        for item in data.get('teams', []):
-            country_mapping = ExternalMapping.objects.filter(
-                external_name=item['country_context'],
-                content_type=country_type
-            ).first()
-            internal_country = country_mapping.internal_object if country_mapping else None
+        updated_counts = {"countries": 0, "leagues": 0, "teams": 0}
 
-            ExternalMapping.objects.update_or_create(
-                external_name=item['external_name'],
-                content_type=team_type,
-                country=internal_country,
-                defaults={'object_id': item['internal_id']}
-            )
+        # Wrap database operations in a single atomic transaction
+        with transaction.atomic():
 
-        # toast helper response!
+            # 2. Process Countries
+            for item in data.get('countries', []):
+                print(item)
+                internal_id = item.get('internal_id')
+                if not internal_id:
+                    continue
+
+                ExternalMapping.objects.update_or_create(
+                    external_name=item['external_name'],
+                    content_type=country_type,
+                    defaults={'object_id': internal_id}
+                )
+                updated_counts["countries"] += 1
+
+            # 3. Process Leagues (0 database hits for country lookups!)
+            for item in data.get('leagues', []):
+                print(item)
+                internal_id = item.get('internal_id')
+                if not internal_id:
+                    continue
+
+                # Retrieve from in-memory dictionary
+                internal_country = country_mappings_dict.get(item.get('country_context'))
+
+                ExternalMapping.objects.update_or_create(
+                    external_name=item['external_name'],
+                    content_type=league_type,
+                    country=internal_country,
+                    defaults={'object_id': internal_id}
+                )
+                updated_counts["leagues"] += 1
+
+            # 4. Process Teams (0 database hits for country lookups!)
+            for item in data.get('teams', []):
+                print(item)
+                internal_id = item.get('internal_id')
+                if not internal_id:
+                    continue
+
+                # Retrieve from in-memory dictionary
+                internal_country = country_mappings_dict.get(item.get('country_context'))
+
+                ExternalMapping.objects.update_or_create(
+                    external_name=item['external_name'],
+                    content_type=team_type,
+                    country=internal_country,
+                    defaults={'object_id': internal_id}
+                )
+                updated_counts["teams"] += 1
+
         return toast_response(
-            message=f"Successfully updated mappings: {len(data.get('countries', []))} countries, {len(data.get('leagues', []))} leagues, {len(data.get('teams', []))} teams.",
+            message=f"Saved mappings: {updated_counts['countries']} countries, {updated_counts['leagues']} leagues, {updated_counts['teams']} teams.",
             level="success"
         )
 
     except Exception as e:
-
         print(f"❌ DATABASE PROCESSING ERROR: {str(e)}")
-
         return toast_response(message=f"Error saving mappings: {str(e)}", level="error", status_code=400)
+
 
 
 @login_required

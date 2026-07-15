@@ -16,3 +16,32 @@
     from { opacity: 0; }
     to { opacity: 1; }
 }
+
+/* ADD FIXTURE MANUALLY */
+/* Base state: Always has the box styling, but it's squished and invisible */
+#add-manual-fixture-container {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid transparent; /* Keeps layout stable */
+    border-radius: 8px;
+    padding: 0 15px; /* Top/bottom padding is 0 when closed */
+
+    /* Smoothly transition the padding along with max-height and opacity */
+    transition: max-height 0.5s ease-in-out,
+                opacity 0.3s ease,
+                padding 0.5s ease-in-out,
+                border-color 0.3s ease,
+                margin 0.5s ease-in-out;
+}
+
+/* Expanded state: Just opens up the height, padding, and fades in the border */
+#add-manual-fixture-container.expanded {
+    max-height: 1000px;
+    opacity: 1;
+    padding: 15px; /* Adds top/bottom padding smoothly */
+    border-color: #ddd; /* Fades the border color in nicely */
+    margin-top: 10px;
+    margin-bottom: 20px;
+}

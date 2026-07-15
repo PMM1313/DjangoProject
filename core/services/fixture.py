@@ -16,6 +16,7 @@ from django.conf import settings
 from .league import LeagueService
 from .team import TeamService
 from .stats import TrackingValues
+from .bet import calculate_required_bet
 from ..models import Team, Fixture, Country, League, Settings, ArchivedFixture, ForRecover, RecoverFixture
 from .for_recover import use_plus_for_recovery
 
@@ -73,7 +74,7 @@ class FixtureService:
         fixtures_data = []
 
         while current_day <= end_date:
-            # Reusing your existing single-day fetcher
+            # Reusing existing single-day fetcher
             fixtures = FixtureService.fetch_from_api(current_day.isoformat())
             fixtures_data.extend(fixtures)
             current_day += timedelta(days=1)
@@ -110,9 +111,9 @@ class FixtureService:
             fixture_date_and_start_time = datetime.fromisoformat(item["fixture"]["date"])
 
             # print(f"step 1")
+            # Skip if neither team is in our "Main" tracked table, and leagues is not used too
             if not is_h_tracked and not is_a_tracked and not is_league_tracked:
                 # print(f"step 1-2")
-                # Skip if neither team is in our "Main" tracked table, and leagues is not used too
 
                 # 1. Check the local memory set FIRST
                 if (h_id, a_id, league_id) in existing_fixtures:
@@ -132,7 +133,7 @@ class FixtureService:
                 print(f"League: {league_obj.name}, Country: {league_obj.country} added to DB")
                 # check for logo and download it if not
 
-            # check for league logo if not download it
+            # check for league logo already processed/downloaded, if not download it
             if league_obj.id not in processed_league_logos:
                 if not league_obj.logo:
                     logo_url = item['league'].get('logo')
@@ -298,7 +299,7 @@ class FixtureService:
                     today = timezone.now().date()
 
                     # 1. Calculate the rounded-up bet
-                    bet = FixtureService.calculate_needed_bet(all_bets, coef)
+                    bet = calculate_required_bet(all_bets, coef)
                     total_bets += bet  # sum both team bets
 
                     # 2. Total money in and out
@@ -331,27 +332,27 @@ class FixtureService:
 
             return fixture
 
-    @staticmethod
-    def calculate_needed_bet(team_all_bets, coef):
-        """
-        Algebraic Formula: Bet = (AllBets * 1.10) / (Coef - 1.10)
-        Calculates the stake needed to cover past losses + 10% markup on total.
-        """
-        # from .models import Settings  # Local import to avoid circularity
-
-        # 1. Fetch baseline from Settings
-        settings = Settings.load()
-        min_bet = settings.min_bet
-
-        # The Formula Implementation
-        numerator = team_all_bets * Decimal('1.10')
-        denominator = coef - Decimal('1.10')
-
-        calculated_bet = numerator / denominator
-
-        # Apply "Floor" (min_bet) and round to 2 decimal places
-        final_bet = max(calculated_bet, min_bet)
-        return final_bet.quantize(Decimal('0.01'), rounding=ROUND_UP)
+    # @staticmethod
+    # def calculate_needed_bet(team_all_bets, coef):
+    #     """
+    #     Algebraic Formula: Bet = (AllBets * 1.10) / (Coef - 1.10)
+    #     Calculates the stake needed to cover past losses + 10% markup on total.
+    #     """
+    #     # from .models import Settings  # Local import to avoid circularity
+    #
+    #     # 1. Fetch baseline from Settings
+    #     settings = Settings.load()
+    #     min_bet = settings.min_bet
+    #
+    #     # The Formula Implementation
+    #     numerator = team_all_bets * Decimal('1.10')
+    #     denominator = coef - Decimal('1.10')
+    #
+    #     calculated_bet = numerator / denominator
+    #
+    #     # Apply "Floor" (min_bet) and round to 2 decimal places
+    #     final_bet = max(calculated_bet, min_bet)
+    #     return final_bet.quantize(Decimal('0.01'), rounding=ROUND_UP)
 
     @staticmethod
     def resolve_fixture(fixture_id):
