@@ -82,11 +82,10 @@ class Team(models.Model):
 class Fixture(models.Model):
     api_sport_id = models.IntegerField(db_index=True, default=0)  # api sport fixture id
     fixture_id = models.BigIntegerField(unique=True, db_index=True, default=0)  # I generate this
-    # Related names must be unique so Django knows which is which
+
     home_id = models.IntegerField()
     away_id = models.IntegerField()
-    # home_team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='home_fixtures')
-    # away_team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='away_fixtures')
+
     home_team_name = models.CharField(max_length=50)
     away_team_name = models.CharField(max_length=50)
     home_team_bet = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
@@ -116,6 +115,8 @@ class Fixture(models.Model):
     away_score = models.IntegerField(null=True, blank=True)
 
     season = models.PositiveIntegerField()
+
+    sources = models.JSONField(default=dict, blank=True)
 
     class Meta:
         # This ensures that whenever you query Fixtures,
@@ -243,6 +244,7 @@ class ArchivedFixture(models.Model):
     season = models.PositiveIntegerField(null=True, blank=True)
     status = models.CharField(max_length=20, null=True, blank=True)
     is_played = models.BooleanField(null=True, blank=True)
+    sources = models.JSONField(default=dict, blank=True)
     archived_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

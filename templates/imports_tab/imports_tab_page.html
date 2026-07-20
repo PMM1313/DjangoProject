@@ -63,6 +63,28 @@ details[open] .accordion-arrow {
 }
 </style>
 
+<!-- 1. TEMPLATES: Rendered ONCE to eliminate the 12.7 MB payload bloat -->
+<template id="country-options-template">
+    <option value="">-- Map Country --</option>
+    {% for c in all_countries %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+    {% endfor %}
+</template>
+
+<template id="league-options-template">
+    <option value="">-- Map League --</option>
+    {% for l in all_leagues %}
+        <option value="{{ l.id }}" data-country="{{ l.country.id }}">{{ l.name }} - {{ l.country.name }}</option>
+    {% endfor %}
+</template>
+
+<template id="team-options-template">
+    <option value="">-- Map Team --</option>
+    {% for t in all_teams %}
+        <option value="{{ t.id }}" data-country="{{ t.country.id|default:'' }}">{{ t.name }} - {{ t.country.name|default:"No Country" }}</option>
+    {% endfor %}
+</template>
+
 
 {% for country in view_data %}
     <details class="country-block"
@@ -145,7 +167,7 @@ details[open] .accordion-arrow {
                     <tr class="fixture-row {% if not match_wrap.is_ready %}table-warning{% endif %}">
 
                         <td class="fixture-time" style="padding-left: 0.5rem">
-                            {{ match_wrap.scraped.time }}
+                            {{ match_wrap.scraped.date }}
                         </td>
 
                         <td data-external-team="{{ match_wrap.scraped.homeTeam }}">
@@ -275,6 +297,7 @@ function getManualMappings() {
             // 3. Look DOWNWARDS for Fixture Rows
             leagueBlock.querySelectorAll('.fixture-row').forEach(row => {
                 const timeVal = (row.querySelector('.fixture-time')?.innerText || "").trim();
+
                 const cells = row.querySelectorAll('[data-external-team]');
                 if (cells.length < 2) return; // safety check
 
@@ -309,7 +332,7 @@ function getManualMappings() {
                 // --- 4. Process Fixture Entry ---
                 if (home.id || away.id) {
                     payload.fixtures.push({
-                        time: timeVal,
+                        date: timeVal,
                         country_id: country.id,
                         country_name: extCountryName,
                         league_id: league.id,

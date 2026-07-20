@@ -712,6 +712,9 @@ def imports_tab_page(request):
 @login_required
 @require_POST
 def save_manual_mappings(request):
+    def import_or_update_fixtures_in_db(fixtures):
+        pass
+
     try:
         data = json.loads(request.body)
 
@@ -723,6 +726,10 @@ def save_manual_mappings(request):
         print(f"⚽ Teams:     {len(data.get('teams', []))}")
         print(f"⚽ Fixtures:  {len(data.get('fixtures', []))}")
 
+        print(data['countries'])
+        print(data['leagues'])
+        print(data['teams'])
+        print(data['fixtures'])
         # for fixture in data.get('fixtures', []):
         #     print(fixture)
         #
@@ -760,7 +767,7 @@ def save_manual_mappings(request):
 
             # 2. Process Countries
             for item in data.get('countries', []):
-                print(item)
+
                 internal_id = item.get('internal_id')
                 if not internal_id:
                     continue
@@ -774,7 +781,7 @@ def save_manual_mappings(request):
 
             # 3. Process Leagues (0 database hits for country lookups!)
             for item in data.get('leagues', []):
-                print(item)
+
                 internal_id = item.get('internal_id')
                 if not internal_id:
                     continue
@@ -792,7 +799,7 @@ def save_manual_mappings(request):
 
             # 4. Process Teams (0 database hits for country lookups!)
             for item in data.get('teams', []):
-                print(item)
+
                 internal_id = item.get('internal_id')
                 if not internal_id:
                     continue
@@ -808,15 +815,30 @@ def save_manual_mappings(request):
                 )
                 updated_counts["teams"] += 1
 
+            # process fixtures
+            for raw_fixture in data.get('fixtures', []):
+                fixture = FixtureService.prepare_scraped_data_to_db_fixture_format(raw_fixture)
+
+                # SAFEGUARD: Skip this row entirely if the data preparation returned None
+                if fixture is None:
+                    print(f"⚠️ Skipping a raw fixture row because preparation returned None. Raw data: {raw_fixture}")
+                    continue
+
+                FixtureService().create_or_update_fixture_in_db(fixture, source_name="OddsPortal")
+
         return toast_response(
-            message=f"Saved mappings: {updated_counts['countries']} countries, {updated_counts['leagues']} leagues, {updated_counts['teams']} teams.",
+            message=(
+                f"Saved mappings:\n"
+                f"{updated_counts['countries']} countries,\n"
+                f"{updated_counts['leagues']} leagues,\n"
+                f"{updated_counts['teams']} teams."
+            ),
             level="success"
         )
 
     except Exception as e:
         print(f"❌ DATABASE PROCESSING ERROR: {str(e)}")
         return toast_response(message=f"Error saving mappings: {str(e)}", level="error", status_code=400)
-
 
 
 @login_required

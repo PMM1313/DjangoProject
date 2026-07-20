@@ -3,7 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP, ROUND_UP
 from typing import Optional
 
 import requests
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from datetime import datetime, timedelta, date
 
 from django.db.models import F, Min, Max
@@ -56,13 +56,6 @@ class FixtureService:
 
         return data["response"]
 
-    # ---------- CONDITIONS ----------
-    # def should_import(self, item: dict) -> bool:
-    #     """
-    #     Define your business rules here
-    #     """
-    #     pass
-
     # ---------- PROCESS AND SAVE BULK ----------
     @transaction.atomic
     def fetch_and_save_fixtures(self, date_from, date_to):
@@ -99,7 +92,7 @@ class FixtureService:
             league_id = item['league']['id']
             season = item["league"]["season"]
 
-            year_as_int = int(item['fixture']['date'][:4])
+            # year_as_int = int(item['fixture']['date'][:4])
 
             # 2. Check if at least one team is tracked
             is_h_tracked = h_id in tracked_team_ids
@@ -126,6 +119,7 @@ class FixtureService:
 
             # print(f"step 1-4")
             league_obj = League.objects.filter(id=item["league"]["id"]).select_related('country').first()
+            item["league"]["db_object"] = league_obj
 
             # in case some of the 2 teams are tracked but league not in DB
             if not league_obj:
@@ -196,8 +190,7 @@ class FixtureService:
                 continue  # fixture updated, continue to next fixture
 
             # print(f"step 4")
-            # 5. Create Fixture using your new schema
-            fixture_id = self.generate_fixture_id(fixture_date_and_start_time, h_id, a_id, year_as_int, )
+
             # 1. Try to fetch the home and away team objects from your database
             home_team_internal = Team.objects.filter(id=item["teams"]["home"]["id"]).first()
             away_team_internal = Team.objects.filter(id=item["teams"]["away"]["id"]).first()
@@ -206,24 +199,10 @@ class FixtureService:
             h_name = home_team_internal.name if home_team_internal else item["teams"]["home"]["name"]
             a_name = away_team_internal.name if away_team_internal else item["teams"]["away"]["name"]
 
-            fixture = Fixture.objects.create(
-                api_sport_id=item["fixture"]['id'],
-                fixture_id=fixture_id,
-                home_id=h_id,
-                away_id=a_id,
-                home_team_name=h_name,
-                away_team_name=a_name,
-                league=league_obj,
-                league_round=item['league']['round'],
-                country=country_obj,
-                date=fixture_date_and_start_time,
-                home_score=item["score"]["fulltime"]["home"],
-                away_score=item["score"]["fulltime"]["away"],
-                status=item["fixture"]["status"]["long"],
-                season=season,
-                # Coefficient, Bets and Plus would be calculated when fixture is played
-                # by my odds-service later
-            )
+            item["teams"]["home"]["name"] = h_name
+            item["teams"]["away"]["name"] = a_name
+
+            self.create_or_update_fixture_in_db(item, source_name="Api-Sports")
 
             existing_fixtures.add((h_id, a_id, league_id))
 
@@ -248,6 +227,146 @@ class FixtureService:
             status = f"{h_name}: {is_h_tracked}, {a_name}: {is_a_tracked}"
 
             print(f"Created: {h_name} vs {a_name} (Tracked: {status}) ({league_status})")
+
+    @transaction.atomic
+    def create_or_update_fixture_in_db(self, fixture, source_name="Unknown"):
+
+        try:
+            fixture["fixture"]["date"] = datetime.fromisoformat(fixture["fixture"]["date"].replace("Z", "+00:00"))
+            # league_obj = League.objects.filter(id=fixture["league"]["id"]).select_related('country').first()
+
+            fixture_id = self.generate_fixture_id(
+                fixture["fixture"]["date"],
+                fixture["teams"]["home"]["id"],
+                fixture["teams"]["away"]["id"],
+                fixture["fixture"]["date"].year, )
+
+            current_timestamp = timezone.now().isoformat()
+
+            try:
+                # 1. Fetch the existing record to inspect it
+                fixture_in_db = Fixture.objects.get(fixture_id=fixture_id)
+                if not fixture_in_db.sources:
+                    fixture_in_db.sources = {}
+
+                fixture_in_db.sources[source_name] = current_timestamp
+
+                # Rule A: If a match is already marked as "Match Finished", don't overwrite
+                # its scores or status back to "Not Started"
+                # if fixture_in_db.status == "Match Finished" and fixture["fixture"]["status"]["long"] == "Not Started":
+                #     # Skip status and score updates, but update other fields if needed
+                #     pass
+                # else:
+                #     fixture_in_db.status = fixture["fixture"]["status"]["long"]
+                #     fixture_in_db.home_score = fixture["score"]["fulltime"]["home"]
+                #     fixture_in_db.away_score = fixture["score"]["fulltime"]["away"]
+
+                # Rule B: Only update the date if the new date is different (e.g., match was rescheduled)
+                if fixture_in_db.date != fixture["fixture"]["date"]:
+                    fixture_in_db.date = fixture["fixture"]["date"]
+
+                # # Always update basic info safely
+                # fixture_in_db.home_team_name = fixture["teams"]["home"]["name"]
+                # fixture_in_db.away_team_name = fixture["teams"]["away"]["name"]
+
+                # Save the modified database object
+                fixture_in_db.save()
+
+            except Fixture.DoesNotExist:
+                sources = {source_name: current_timestamp}
+
+                fixture_in_db = Fixture.objects.create(
+                    api_sport_id=fixture["fixture"]['id'],
+                    fixture_id=fixture_id,
+                    home_id=fixture["teams"]["home"]["id"],
+                    away_id=fixture["teams"]["away"]["id"],
+                    home_team_name=fixture["teams"]["home"]["name"],
+                    away_team_name=fixture["teams"]["away"]["name"],
+                    league=fixture["league"]["db_object"],
+                    league_round=fixture['league']['round'],  # db_object
+                    country=fixture["league"]["db_object"].country,  # db_object
+                    date=fixture["fixture"]["date"],
+                    home_score=fixture["score"]["fulltime"]["home"],
+                    away_score=fixture["score"]["fulltime"]["away"],
+                    status=fixture["fixture"]["status"]["long"],
+                    season=fixture["league"]["season"],
+                    sources=sources,
+                    # Coefficient, Bets and Plus would be calculated when fixture is played
+                    # by my odds-service later
+                )
+                return fixture_in_db
+
+        except KeyError as e:
+            # Catches cases where the incoming dictionary format is missing expected keys
+            # logger.error(f"Data formatting error. Missing expected key: {e} in fixture payload.")
+            raise ValueError(f"Invalid payload structure: missing key {e}") from e
+
+        except ValueError as e:
+            # Catches date parsing errors if the date string is malformed
+            # logger.error(f"Date parsing error for fixture data: {e}")
+            raise
+
+        except IntegrityError as e:
+            # Catches database level issues, like violating a Unique Constraint on fixture_id
+            # logger.warning(f"Database integrity conflict (likely duplicate fixture_id={fixture_id}): {e}")
+
+            # OPTIONAL: Switch to an update strategy here if it already exists:
+            # return self.handle_fixture_update(fixture_id, fixture)
+            raise
+
+        except Exception as e:
+            # Catch-all for unexpected infrastructure errors (DB down, etc.)
+            # logger.critical(f"Unexpected system failure while saving fixture: {e}", exc_info=True)
+            raise
+
+    @staticmethod
+    def prepare_scraped_data_to_db_fixture_format(raw_fixture):
+
+        league_id = raw_fixture.get('league_id')
+        home_id = raw_fixture.get('home_team_id')
+        away_id = raw_fixture.get('away_team_id')
+
+        if not all([league_id, home_id, away_id]):
+            return
+
+        try:
+            league_db_obj = League.objects.select_related('country').get(id=league_id)
+
+            # Build the exact dictionary required by create_or_update_fixture_in_db
+            formatted_fixture = {
+                "fixture": {
+                    "id": None,  # Manual scraping won't have the API-Sport provider ID
+                    "date": raw_fixture.get('date'),  # Must be a clean ISO format string
+                    "status": {
+                        "long": "Not Started"
+                    }
+                },
+                "league": {
+                    "db_object": league_db_obj,
+                    "round": "Regular Season",
+                    "season": league_db_obj.season_year  # FIX: This matches fixture["league"]["season"]
+                },
+                "teams": {
+                    "home": {
+                        "id": home_id,
+                        "name": raw_fixture.get('home_team_internal_name')
+                    },
+                    "away": {
+                        "id": away_id,
+                        "name": raw_fixture.get('away_team_internal_name')
+                    }
+                }
+            }
+
+            return formatted_fixture
+
+        except League.DoesNotExist:
+            print(f"❌ League ID {league_id} not found.")
+            raise
+        except Exception as fixture_error:
+            print(f"❌ Error: {str(fixture_error)}")
+            raise fixture_error
+
 
     @staticmethod
     def get_grouped_fixtures():
@@ -331,28 +450,6 @@ class FixtureService:
             fixture.save()
 
             return fixture
-
-    # @staticmethod
-    # def calculate_needed_bet(team_all_bets, coef):
-    #     """
-    #     Algebraic Formula: Bet = (AllBets * 1.10) / (Coef - 1.10)
-    #     Calculates the stake needed to cover past losses + 10% markup on total.
-    #     """
-    #     # from .models import Settings  # Local import to avoid circularity
-    #
-    #     # 1. Fetch baseline from Settings
-    #     settings = Settings.load()
-    #     min_bet = settings.min_bet
-    #
-    #     # The Formula Implementation
-    #     numerator = team_all_bets * Decimal('1.10')
-    #     denominator = coef - Decimal('1.10')
-    #
-    #     calculated_bet = numerator / denominator
-    #
-    #     # Apply "Floor" (min_bet) and round to 2 decimal places
-    #     final_bet = max(calculated_bet, min_bet)
-    #     return final_bet.quantize(Decimal('0.01'), rounding=ROUND_UP)
 
     @staticmethod
     def resolve_fixture(fixture_id):
@@ -456,6 +553,7 @@ class FixtureService:
             country=fixture.country,
             season=fixture.season,
             is_played=fixture.is_played,
+            sources=fixture.sources
         )
 
     @staticmethod
