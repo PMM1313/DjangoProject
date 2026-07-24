@@ -2,19 +2,19 @@ import os
 
 import requests
 from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from urllib.parse import urlparse
 
 from ..models import Team, Country, League
 # services/league_service.py
 from datetime import date, timedelta
+from .country import CountryService
 
 
 class LeagueService:
     @staticmethod
     def update_or_create_league(league_data: dict) -> League:
-        country, _ = Country.objects.get_or_create(
-            name=league_data.get("country", "Unknown")
-        )
+        country = CountryService.get_or_create_country(name=league_data.get("country", "Unknown"))
 
         season_year = league_data.get("season_year", date.today().year)
         season_start = date(season_year, 8, 1)
@@ -63,12 +63,32 @@ class LeagueService:
     def download_image_to_field(url, field):
         if not url:
             return
+
         try:
+            # Extract filename from URL (e.g., "676.png" or "arg.svg")
+            filename = os.path.basename(urlparse(url).path)
+            if not filename:
+                return
+
+            # Build the relative storage path using the model field's upload_to folder
+            upload_to = getattr(field.field, 'upload_to', '')
+            # Handle callables if upload_to is a function
+            if callable(upload_to):
+                upload_to = upload_to(field.instance, filename)
+                target_path = upload_to
+            else:
+                target_path = os.path.join(upload_to, filename)
+
+            # 1. Check if the file already exists on disk/storage
+            if default_storage.exists(target_path):
+                # Point field directly to the existing file (No re-download, no new file created)
+                field.name = target_path
+                return
+
+            # 2. File doesn't exist yet: Download and save
             response = requests.get(url, timeout=10)
             if response.status_code == 200:
-                # Extract filename from URL (e.g., 676.png)
-                filename = os.path.basename(urlparse(url).path)
-                # Save to the ImageField/FileField
                 field.save(filename, ContentFile(response.content), save=False)
+
         except Exception as e:
             print(f"Failed to download image {url}: {e}")

@@ -104,24 +104,23 @@ details[open] .accordion-arrow {
 
             <div style="width: 160px; visibility: hidden;" aria-hidden="true"></div>
 
-            <div style="display: flex; align-items: center; gap: 1rem;">
+            <div class="country-mapping-container" style="display: flex; align-items: center; gap: 1rem;">
+                <!-- 1. Scraped External Name -->
                 <span>{{ country.external_name }}</span>
 
+                <!-- 2. Pre-matched Internal Name (if exists) -->
                 {% if country.internal_obj %}
                     <span class="internal-country-data"
                           data-internal-id="{{ country.internal_obj.id }}"
                           data-internal-name="{{ country.internal_obj.name }}">
                         ({{ country.internal_obj.name }})
                     </span>
-                {% else %}
-                    <select class="country-mapper">
-{#                        onclick="event.stopPropagation();#}
-                        <option value="">-- Map Country --</option>
-                        {% for c in all_countries %}
-                            <option value="{{ c.id }}">{{ c.name }}</option>
-                        {% endfor %}
-                    </select>
                 {% endif %}
+
+                <!-- 3. Country Dropdown (Hidden if pre-matched, visible if unmatched) -->
+                <select class="form-select country-mapper" {% if country.internal_obj %}style="display:none;"{% endif %}>
+                    <!-- Will be populated by JS -->
+                </select>
             </div>
 
             <div class="accordion-indicators" style="display: flex; align-items: center; gap: 12px; width: 160px; justify-content: flex-end;">
@@ -242,6 +241,68 @@ details[open] .accordion-arrow {
 </button>
 
 <script>
+
+function populateImportDropdowns() {
+    const countryTpl = document.getElementById('country-options-template');
+    const leagueTpl = document.getElementById('league-options-template');
+    const teamTpl = document.getElementById('team-options-template');
+
+    // 1. Fill options into empty selects
+    if (countryTpl) {
+        const countryHtml = countryTpl.innerHTML;
+        document.querySelectorAll('.country-mapper').forEach(sel => {
+            if (!sel.children.length) sel.innerHTML = countryHtml;
+        });
+    }
+
+    if (leagueTpl) {
+        const leagueHtml = leagueTpl.innerHTML;
+        document.querySelectorAll('.league-mapper').forEach(sel => {
+            if (!sel.children.length) sel.innerHTML = leagueHtml;
+        });
+    }
+
+    if (teamTpl) {
+        const teamHtml = teamTpl.innerHTML;
+        document.querySelectorAll('.team-mapper').forEach(sel => {
+            if (!sel.children.length) sel.innerHTML = teamHtml;
+        });
+    }
+
+    // 2. Set pre-matched default values behind the scenes
+    document.querySelectorAll('.country-block').forEach(countryBlock => {
+        const countryData = countryBlock.querySelector('.internal-country-data');
+        const countrySelect = countryBlock.querySelector('.country-mapper');
+        if (countryData && countrySelect) {
+            countrySelect.value = countryData.getAttribute('data-internal-id');
+        }
+
+        countryBlock.querySelectorAll('.league-block').forEach(leagueBlock => {
+            const leagueData = leagueBlock.querySelector('.internal-league-data');
+            const leagueSelect = leagueBlock.querySelector('.league-mapper');
+            if (leagueData && leagueSelect) {
+                leagueSelect.value = leagueData.getAttribute('data-internal-id');
+            }
+
+            leagueBlock.querySelectorAll('.fixture-row').forEach(row => {
+                row.querySelectorAll('[data-external-team]').forEach(teamCell => {
+                    const teamData = teamCell.querySelector('.internal-team-data');
+                    const teamSelect = teamCell.querySelector('.team-mapper');
+                    if (teamData && teamSelect) {
+                        teamSelect.value = teamData.getAttribute('data-internal-id');
+                    }
+                });
+            });
+        });
+    });
+}
+
+// Execute immediately if content is already in DOM
+populateImportDropdowns();
+
+// Re-execute every time HTMX updates/swaps content on the page
+document.body.addEventListener('htmx:afterSettle', populateImportDropdowns);
+
 function getManualMappings() {
     const payload = { countries: [], leagues: [], teams: [], fixtures: [] };
 
@@ -314,6 +375,7 @@ function getManualMappings() {
                         external_name: extHomeName,
                         country_context: extCountryName,
                         league_context: extLeagueName,
+                        internal_league_name: league.name,
                         internal_id: home.id,
                         internal_name: home.name
                     });
@@ -324,6 +386,7 @@ function getManualMappings() {
                         external_name: extAwayName,
                         country_context: extCountryName,
                         league_context: extLeagueName,
+                        internal_league_name: league.name,
                         internal_id: away.id,
                         internal_name: away.name
                     });

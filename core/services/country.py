@@ -8,8 +8,10 @@ class CountryService:
         """
         Returns an existing country or creates a new one.
         """
-        country, _ = Country.objects.update_or_create(
-            name=name,
-            defaults={}  # you can add more fields if needed later
+        # Trim leading/trailing whitespace to prevent duplicate errors like "Vietnam " vs "Vietnam"
+        clean_name = name.strip() if name else name  # "if name else name" strip wont crash the DB if name is None
+
+        country, created = Country.objects.get_or_create(
+            name=clean_name
         )
         return country

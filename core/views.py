@@ -368,17 +368,24 @@ def play_match(request, fixture_id):
     return response
 
 
-@login_required  # Ensures only logged-in users can delete
-@transaction.atomic  # Ensures the DB stays consistent if deletion is complex
+@login_required
+@require_POST
 def resolve_match_view(request, fixture_id):
-    if request.method == "POST":
-        # 1. Execute the business logic (Resetting debts or carrying them over)
+    try:
+        # Execute business logic
         FixtureService.resolve_fixture(fixture_id)
 
-        # 2. Return an empty response with a 200 status.
-        # HTMX will see this and, combined with hx-target="closest tr" and hx-swap="delete",
-        # it will remove the row from your table.
+        # Success: 200 OK + empty response -> HTMX deletes the row
         return HttpResponse("")
+
+    except ValueError as e:
+        # Catch expected errors (e.g., item not found / invalid state)
+        # Returns HTTP 400 so HTMX cancels the row deletion
+        return HttpResponseBadRequest(str(e))
+
+    except Exception:
+        # Catch unexpected server errors
+        return HttpResponse("An error occurred while resolving the match.", status=500)
 
 
 @login_required
@@ -659,6 +666,10 @@ def imports_tab_page(request):
                 t_home_ext = match.get('homeTeam')
                 t_away_ext = match.get('awayTeam')
 
+                if l_name == "Friendlies Clubs":
+                    t_home_ext = t_home_ext.split('(')[0].strip()
+                    t_away_ext = t_away_ext.split('(')[0].strip()
+
                 # Resolve Home Team
                 m_home = ExternalMapping.objects.filter(external_name=t_home_ext, country=internal_country,
                                                         content_type=team_type).first()
@@ -801,11 +812,18 @@ def save_manual_mappings(request):
             for item in data.get('teams', []):
 
                 internal_id = item.get('internal_id')
+                internal_league_name = item.get('internal_league_name')
+
                 if not internal_id:
                     continue
 
                 # Retrieve from in-memory dictionary
                 internal_country = country_mappings_dict.get(item.get('country_context'))
+
+                # case where frendlies are played the come with league "Friendlies Clubs"
+                # and country "World" i dont want them writen in the DB
+                if internal_league_name == "Friendlies Clubs":
+                    continue
 
                 ExternalMapping.objects.update_or_create(
                     external_name=item['external_name'],

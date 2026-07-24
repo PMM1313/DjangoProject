@@ -440,6 +440,14 @@ class ExternalMapping(models.Model):
         country_str = f" ({self.country.name})" if self.country else "Unknown"
         return f"{self.external_name}{country_str} -> {self.internal_object}"
 
+    @staticmethod
+    def get_country_mappings() -> dict:
+        return dict(
+            ExternalMapping.objects.filter(
+                content_type=ContentType.objects.get_for_model(Country)
+            ).values_list('external_name', 'object_id')
+        )
+
 
 class PendingImport(models.Model):
     # Helpful to know where/when it came from

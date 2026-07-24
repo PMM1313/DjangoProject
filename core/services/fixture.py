@@ -5,6 +5,7 @@ from typing import Optional
 import requests
 from django.db import transaction, IntegrityError
 from datetime import datetime, timedelta, date
+from django.core.exceptions import ObjectDoesNotExist
 
 from django.db.models import F, Min, Max
 from django.db.models.functions import Coalesce
@@ -13,11 +14,13 @@ from django.utils import timezone
 
 from django.conf import settings
 
+from .mapping import create_mapping
+from .country import CountryService
 from .league import LeagueService
 from .team import TeamService
 from .stats import TrackingValues
 from .bet import calculate_required_bet
-from ..models import Team, Fixture, Country, League, Settings, ArchivedFixture, ForRecover, RecoverFixture
+from ..models import Team, Fixture, Country, League, Settings, ArchivedFixture, ExternalMapping
 from .for_recover import use_plus_for_recovery
 
 
@@ -29,8 +32,8 @@ class FixtureService:
     # ---------- FETCH ----------
 
     @staticmethod
-    def fetch_from_api(date: str):
-        params = {"date": date, "timezone": FixtureService.TIMEZONE}
+    def fetch_from_api(date_to_fetch: str):
+        params = {"date": date_to_fetch, "timezone": FixtureService.TIMEZONE}
         headers = {
             'x-apisports-key': FixtureService.API_KEY,
         }
@@ -75,6 +78,13 @@ class FixtureService:
         print(f"From: {start_date}, To: {end_date}, Fixtures:{len(fixtures_data)}")
 
         # 1. Get all tracked IDs once to avoid hitting the DB in every loop iteration
+        # existing_country_ids = set(Country.objects.values_list("id", flat=True))
+        country_cache = {
+            c.name: c for c in Country.objects.all()
+        }
+        # Own DB mappings and current mappings during this execution
+        country_mappings = ExternalMapping.get_country_mappings()
+
         tracked_team_ids = set(Team.objects.filter(is_active=True).values_list('id', flat=True))
         used_league_ids = set(League.objects.filter(is_used=True).values_list("id", flat=True))
         existing_fixtures = set(Fixture.objects.values_list("home_id", "away_id", "league_id"))
@@ -102,6 +112,54 @@ class FixtureService:
             # 4. Parse Date
             # If your model is DateField (not DateTimeField), use .date()
             fixture_date_and_start_time = datetime.fromisoformat(item["fixture"]["date"])
+
+            # COUNTRY take care of the country for each fixture
+            #1 ADD TO DB
+            # Lookup during fixture loop
+            raw_country_name = item['league'].get("country")
+
+            if raw_country_name:
+
+                if raw_country_name in country_cache:
+                    country_obj = country_cache[raw_country_name]
+                    # Full model access:
+                    # print(country_obj.id)  # Country ID
+                    # print(country_obj.name)  # Country Name
+                    # print(country_obj.flag)  # Flag path/file
+                else:
+                    country_obj = CountryService.get_or_create_country(name=raw_country_name)
+                    country_cache[raw_country_name] = country_obj
+                    print(f"Country created in DB {country_obj}")
+
+
+            #2 ADD TO MAPPING
+            # --- STEP 2: Create Mapping (Only if not already mapped) ---
+            if raw_country_name not in country_mappings:
+                mapping = create_mapping(
+                    external_name=raw_country_name,
+                    model_class=Country,
+                    object_id=country_obj.id
+                )
+                # Mark as mapped so subsequent loop iterations don't re-run DB update
+                country_mappings[raw_country_name] = country_obj.id
+                print(f"Country created in Mappings {raw_country_name}")
+
+            #3 CHECK FOR FLAG
+            # check for country flag if not download it
+            # Check if the flag field is empty (no file path in DB)
+            if country_obj and country_obj.id not in processed_country_flags:
+                if not country_obj.flag:
+                    flag_url = item['league'].get('flag')
+                    if flag_url:
+                        # using league method to download the flag, same as league logo
+                        LeagueService.download_image_to_field(flag_url, country_obj.flag)
+                        country_obj.save()  # Commit the new flag path to DB
+
+                        country_cache[raw_country_name] = country_obj
+                        print(f"Country flag downloaded for {country_obj}")
+
+                # Mark it as processed so we skip it for subsequent fixtures of the same country
+                processed_country_flags.add(country_obj.id)
 
             # print(f"step 1")
             # Skip if neither team is in our "Main" tracked table, and leagues is not used too
@@ -138,19 +196,9 @@ class FixtureService:
                 # Mark it as processed so subsequent iterations skip the DB lookups/downloads
                 processed_league_logos.add(league_obj.id)
 
-            country_obj = league_obj.country  # Assuming League model links to Country
+            # league_country = league_obj.country  # Assuming League model links to Country
 
-            # check for country flag if not download it
-            # Check if the flag field is empty (no file path in DB)
-            if country_obj and country_obj.id not in processed_country_flags:
-                if not country_obj.flag:
-                    flag_url = item['league'].get('flag')
-                    if flag_url:
-                        LeagueService.download_image_to_field(flag_url, country_obj.flag)
-                        country_obj.save()  # Commit the new flag path to DB
 
-                # Mark it as processed so we skip it for subsequent fixtures of the same country
-                processed_country_flags.add(country_obj.id)
 
             # print(f"step 2")
             # League tracked → auto-import teams for new team that are not in DB, but league is tracked
@@ -452,9 +500,9 @@ class FixtureService:
             return fixture
 
     @staticmethod
+    @transaction.atomic
     def resolve_fixture(fixture_id):
-        with transaction.atomic():
-
+        try:
             # 1. LOCK the fixture row so no other process can resolve it simultaneously
             fixture = Fixture.objects.select_for_update().get(fixture_id=fixture_id)
 
@@ -505,8 +553,18 @@ class FixtureService:
             # Create the permanent history record before deleting the active fixture
             FixtureService._create_archive_entry(fixture)
             fixture.delete()
+            print(f"Successfully resolved and archived fixture {fixture_id}.")
 
-        return True
+        except ObjectDoesNotExist:
+            print(f"Resolve failed: Fixture {fixture_id} does not exist in DB.")
+            raise ValueError(f"Fixture {fixture_id} not found.")
+
+        except Exception as e:
+            print(f"Error resolving fixture {fixture_id}: {e}")
+            # Re-raise so @transaction.atomic automatically rolls back all DB changes
+            raise
+
+
 
     @staticmethod
     def resolve_fixture_canceled(fixture_id):
