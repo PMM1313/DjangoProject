@@ -118,6 +118,9 @@ class FixtureService:
             # Lookup during fixture loop
             raw_country_name = item['league'].get("country")
 
+            if raw_country_name is None:
+                print(f'league {item["league"]} doesnt have country ! Country: {raw_country_name}')
+
             if raw_country_name:
 
                 if raw_country_name in country_cache:
@@ -130,6 +133,9 @@ class FixtureService:
                     country_obj = CountryService.get_or_create_country(name=raw_country_name)
                     country_cache[raw_country_name] = country_obj
                     print(f"Country created in DB {country_obj}")
+
+                # Save country_obj on the league dictionary
+                item["country_db_object"] = country_obj
 
 
             #2 ADD TO MAPPING
@@ -175,16 +181,19 @@ class FixtureService:
 
                 continue
 
-            # print(f"step 1-4")
+            print(f"step 1-4")
             league_obj = League.objects.filter(id=item["league"]["id"]).select_related('country').first()
             item["league"]["db_object"] = league_obj
 
+            print(f"step 1-5")
             # in case some of the 2 teams are tracked but league not in DB
             if not league_obj:
                 league_obj = LeagueService.update_or_create_league(item["league"])
+                item["league"]["db_object"] = league_obj
                 print(f"League: {league_obj.name}, Country: {league_obj.country} added to DB")
                 # check for logo and download it if not
 
+            print(f"step 1-6")
             # check for league logo already processed/downloaded, if not download it
             if league_obj.id not in processed_league_logos:
                 if not league_obj.logo:
@@ -200,7 +209,7 @@ class FixtureService:
 
 
 
-            # print(f"step 2")
+            print(f"step 2-1")
             # League tracked → auto-import teams for new team that are not in DB, but league is tracked
             # and check if the round is regular season round, so not add teams that play in Promotion
             # for upper league and are actually in lower league, but API provides upper league ID
@@ -225,7 +234,7 @@ class FixtureService:
 
                 # check for team logo
 
-            # print(f"step 3")
+            print(f"step 2-2")
             # 3. Check for existing fixture using IDs. can be updated here if new date, match status...
             if (h_id, a_id, league_id) in existing_fixtures:
                 Fixture.objects.filter(home_id=h_id, away_id=a_id).update(
@@ -237,7 +246,7 @@ class FixtureService:
 
                 continue  # fixture updated, continue to next fixture
 
-            # print(f"step 4")
+            print(f"step 2-3")
 
             # 1. Try to fetch the home and away team objects from your database
             home_team_internal = Team.objects.filter(id=item["teams"]["home"]["id"]).first()
@@ -250,10 +259,13 @@ class FixtureService:
             item["teams"]["home"]["name"] = h_name
             item["teams"]["away"]["name"] = a_name
 
+            print(f"step 2-4")
             self.create_or_update_fixture_in_db(item, source_name="Api-Sports")
 
+            print(f"step 2-5")
             existing_fixtures.add((h_id, a_id, league_id))
 
+            print(f"step 2-6")
             # check for team logos
             # At the bottom of the loop:
             for side in ['home', 'away']:
@@ -269,58 +281,56 @@ class FixtureService:
 
                     # Mark as processed so we don't query or download for this team again
                     processed_team_logos.add(team_id)
-
+            print(f"step 2-7")
             # The corrected, more accurate version:
             league_status = f"League: {league_obj} Used:{is_league_tracked}"
             status = f"{h_name}: {is_h_tracked}, {a_name}: {is_a_tracked}"
 
+            print(f"step 2-8")
             print(f"Created: {h_name} vs {a_name} (Tracked: {status}) ({league_status})")
 
     @transaction.atomic
     def create_or_update_fixture_in_db(self, fixture, source_name="Unknown"):
-
         try:
-            fixture["fixture"]["date"] = datetime.fromisoformat(fixture["fixture"]["date"].replace("Z", "+00:00"))
-            # league_obj = League.objects.filter(id=fixture["league"]["id"]).select_related('country').first()
+            # 1. Safely handle date (check if it's already a datetime object or a string)
+            raw_date = fixture["fixture"]["date"]
+            if isinstance(raw_date, str):
+                fixture_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+                fixture["fixture"]["date"] = fixture_date
+            else:
+                fixture_date = raw_date
 
             fixture_id = self.generate_fixture_id(
-                fixture["fixture"]["date"],
+                fixture_date,
                 fixture["teams"]["home"]["id"],
                 fixture["teams"]["away"]["id"],
-                fixture["fixture"]["date"].year, )
+                fixture_date.year
+            )
 
             current_timestamp = timezone.now().isoformat()
 
-            try:
-                # 1. Fetch the existing record to inspect it
-                fixture_in_db = Fixture.objects.get(fixture_id=fixture_id)
+            # 2. Safely resolve League and Country objects
+            league_obj = fixture["league"].get("db_object")
+            country_obj = (
+                league_obj.country if (league_obj and league_obj.country)
+                else fixture.get("country_db_object")
+            )
+
+            # 3. Update or Create
+            fixture_in_db = Fixture.objects.filter(fixture_id=fixture_id).first()
+
+            if fixture_in_db:
                 if not fixture_in_db.sources:
                     fixture_in_db.sources = {}
 
                 fixture_in_db.sources[source_name] = current_timestamp
 
-                # Rule A: If a match is already marked as "Match Finished", don't overwrite
-                # its scores or status back to "Not Started"
-                # if fixture_in_db.status == "Match Finished" and fixture["fixture"]["status"]["long"] == "Not Started":
-                #     # Skip status and score updates, but update other fields if needed
-                #     pass
-                # else:
-                #     fixture_in_db.status = fixture["fixture"]["status"]["long"]
-                #     fixture_in_db.home_score = fixture["score"]["fulltime"]["home"]
-                #     fixture_in_db.away_score = fixture["score"]["fulltime"]["away"]
+                if fixture_in_db.date != fixture_date:
+                    fixture_in_db.date = fixture_date
 
-                # Rule B: Only update the date if the new date is different (e.g., match was rescheduled)
-                if fixture_in_db.date != fixture["fixture"]["date"]:
-                    fixture_in_db.date = fixture["fixture"]["date"]
-
-                # # Always update basic info safely
-                # fixture_in_db.home_team_name = fixture["teams"]["home"]["name"]
-                # fixture_in_db.away_team_name = fixture["teams"]["away"]["name"]
-
-                # Save the modified database object
                 fixture_in_db.save()
-
-            except Fixture.DoesNotExist:
+                return fixture_in_db
+            else:
                 sources = {source_name: current_timestamp}
 
                 fixture_in_db = Fixture.objects.create(
@@ -330,41 +340,24 @@ class FixtureService:
                     away_id=fixture["teams"]["away"]["id"],
                     home_team_name=fixture["teams"]["home"]["name"],
                     away_team_name=fixture["teams"]["away"]["name"],
-                    league=fixture["league"]["db_object"],
-                    league_round=fixture['league']['round'],  # db_object
-                    country=fixture["league"]["db_object"].country,  # db_object
-                    date=fixture["fixture"]["date"],
+                    league=league_obj,
+                    league_round=fixture['league'].get('round', ''),
+                    country=country_obj,  # Safely handles None
+                    date=fixture_date,
                     home_score=fixture["score"]["fulltime"]["home"],
                     away_score=fixture["score"]["fulltime"]["away"],
                     status=fixture["fixture"]["status"]["long"],
                     season=fixture["league"]["season"],
                     sources=sources,
-                    # Coefficient, Bets and Plus would be calculated when fixture is played
-                    # by my odds-service later
                 )
                 return fixture_in_db
 
         except KeyError as e:
-            # Catches cases where the incoming dictionary format is missing expected keys
-            # logger.error(f"Data formatting error. Missing expected key: {e} in fixture payload.")
+            print(f"[Error] Missing expected key: {e}")
             raise ValueError(f"Invalid payload structure: missing key {e}") from e
 
-        except ValueError as e:
-            # Catches date parsing errors if the date string is malformed
-            # logger.error(f"Date parsing error for fixture data: {e}")
-            raise
-
-        except IntegrityError as e:
-            # Catches database level issues, like violating a Unique Constraint on fixture_id
-            # logger.warning(f"Database integrity conflict (likely duplicate fixture_id={fixture_id}): {e}")
-
-            # OPTIONAL: Switch to an update strategy here if it already exists:
-            # return self.handle_fixture_update(fixture_id, fixture)
-            raise
-
         except Exception as e:
-            # Catch-all for unexpected infrastructure errors (DB down, etc.)
-            # logger.critical(f"Unexpected system failure while saving fixture: {e}", exc_info=True)
+            print(f"[Error in create_or_update_fixture_in_db]: {e}")
             raise
 
     @staticmethod
