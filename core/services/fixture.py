@@ -2,7 +2,7 @@ from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP, ROUND_UP
 from typing import Optional
 
-import requests
+import requests, traceback
 from django.db import transaction, IntegrityError
 from datetime import datetime, timedelta, date
 from django.core.exceptions import ObjectDoesNotExist
@@ -60,7 +60,7 @@ class FixtureService:
         return data["response"]
 
     # ---------- PROCESS AND SAVE BULK ----------
-    @transaction.atomic
+
     def fetch_and_save_fixtures(self, date_from, date_to):
         print(f"Fetch and save method called.")
         start_date = datetime.strptime(date_from, '%Y-%m-%d').date()
@@ -92,6 +92,12 @@ class FixtureService:
         processed_team_logos = set()
         processed_country_flags = set()
 
+        results = {
+            'created': 0,
+            'updated': 0,
+            'errors': []
+        }
+
         print(f"Tracked leagues: {used_league_ids}")
 
         for item in fixtures_data:
@@ -114,7 +120,7 @@ class FixtureService:
             fixture_date_and_start_time = datetime.fromisoformat(item["fixture"]["date"])
 
             # COUNTRY take care of the country for each fixture
-            #1 ADD TO DB
+            # 1 ADD TO DB
             # Lookup during fixture loop
             raw_country_name = item['league'].get("country")
 
@@ -137,8 +143,7 @@ class FixtureService:
                 # Save country_obj on the league dictionary
                 item["country_db_object"] = country_obj
 
-
-            #2 ADD TO MAPPING
+            # 2 ADD TO MAPPING
             # --- STEP 2: Create Mapping (Only if not already mapped) ---
             if raw_country_name not in country_mappings:
                 mapping = create_mapping(
@@ -150,7 +155,7 @@ class FixtureService:
                 country_mappings[raw_country_name] = country_obj.id
                 print(f"Country created in Mappings {raw_country_name}")
 
-            #3 CHECK FOR FLAG
+            # 3 CHECK FOR FLAG
             # check for country flag if not download it
             # Check if the flag field is empty (no file path in DB)
             if country_obj and country_obj.id not in processed_country_flags:
@@ -207,8 +212,6 @@ class FixtureService:
 
             # league_country = league_obj.country  # Assuming League model links to Country
 
-
-
             print(f"step 2-1")
             # League tracked → auto-import teams for new team that are not in DB, but league is tracked
             # and check if the round is regular season round, so not add teams that play in Promotion
@@ -260,10 +263,24 @@ class FixtureService:
             item["teams"]["away"]["name"] = a_name
 
             print(f"step 2-4")
-            self.create_or_update_fixture_in_db(item, source_name="Api-Sports")
+            try:
+                # Wrap ONLY the individual DB write in an atomic transaction
+                with transaction.atomic():
+                    self.create_or_update_fixture_in_db(item, source_name="Api-Sports")
+                    results['created'] += 1
 
-            print(f"step 2-5")
-            existing_fixtures.add((h_id, a_id, league_id))
+                    print(f"step 2-5")
+                    existing_fixtures.add((h_id, a_id, league_id))
+
+            except Exception as e:
+                print(f"❌ Failed to save fixture {h_name} vs {a_name}: {e}")
+                print(traceback.format_exc())
+                results['errors'].append({
+                    'fixture': f"{item['teams']['home']['name']} vs {item['teams']['away']['name']}",
+                    'api_id': item['fixture']['id'],
+                    'error': str(e)
+                })
+                continue  # Safe to continue! The broken transaction rolled back cleanly.
 
             print(f"step 2-6")
             # check for team logos
@@ -289,76 +306,69 @@ class FixtureService:
             print(f"step 2-8")
             print(f"Created: {h_name} vs {a_name} (Tracked: {status}) ({league_status})")
 
-    @transaction.atomic
+        return results
+
     def create_or_update_fixture_in_db(self, fixture, source_name="Unknown"):
-        try:
-            # 1. Safely handle date (check if it's already a datetime object or a string)
-            raw_date = fixture["fixture"]["date"]
-            if isinstance(raw_date, str):
-                fixture_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
-                fixture["fixture"]["date"] = fixture_date
-            else:
-                fixture_date = raw_date
 
-            fixture_id = self.generate_fixture_id(
-                fixture_date,
-                fixture["teams"]["home"]["id"],
-                fixture["teams"]["away"]["id"],
-                fixture_date.year
+        # 1. Safely handle date (check if it's already a datetime object or a string)
+        raw_date = fixture["fixture"]["date"]
+        if isinstance(raw_date, str):
+            fixture_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+            fixture["fixture"]["date"] = fixture_date
+        else:
+            fixture_date = raw_date
+
+        fixture_id = self.generate_fixture_id(
+            fixture_date,
+            fixture["teams"]["home"]["id"],
+            fixture["teams"]["away"]["id"],
+            fixture_date.year
+        )
+
+        current_timestamp = timezone.now().isoformat()
+
+        # 2. Safely resolve League and Country objects
+        league_obj = fixture["league"].get("db_object")
+        country_obj = (
+            league_obj.country if (league_obj and league_obj.country)
+            else fixture.get("country_db_object")
+        )
+
+        # 3. Update or Create
+        fixture_in_db = Fixture.objects.filter(fixture_id=fixture_id).first()
+
+        if fixture_in_db:
+            if not fixture_in_db.sources:
+                fixture_in_db.sources = {}
+
+            fixture_in_db.sources[source_name] = current_timestamp
+
+            if fixture_in_db.date != fixture_date:
+                fixture_in_db.date = fixture_date
+
+            fixture_in_db.save()
+            return fixture_in_db
+        else:
+            sources = {source_name: current_timestamp}
+
+            fixture_in_db = Fixture.objects.create(
+                api_sport_id=fixture["fixture"]['id'],
+                fixture_id=fixture_id,
+                home_id=fixture["teams"]["home"]["id"],
+                away_id=fixture["teams"]["away"]["id"],
+                home_team_name=fixture["teams"]["home"]["name"],
+                away_team_name=fixture["teams"]["away"]["name"],
+                league=league_obj,
+                league_round=fixture['league'].get('round', ''),
+                country=country_obj,  # Safely handles None
+                date=fixture_date,
+                home_score=fixture["score"]["fulltime"]["home"],
+                away_score=fixture["score"]["fulltime"]["away"],
+                status=fixture["fixture"]["status"]["long"],
+                season=fixture["league"]["season"],
+                sources=sources,
             )
-
-            current_timestamp = timezone.now().isoformat()
-
-            # 2. Safely resolve League and Country objects
-            league_obj = fixture["league"].get("db_object")
-            country_obj = (
-                league_obj.country if (league_obj and league_obj.country)
-                else fixture.get("country_db_object")
-            )
-
-            # 3. Update or Create
-            fixture_in_db = Fixture.objects.filter(fixture_id=fixture_id).first()
-
-            if fixture_in_db:
-                if not fixture_in_db.sources:
-                    fixture_in_db.sources = {}
-
-                fixture_in_db.sources[source_name] = current_timestamp
-
-                if fixture_in_db.date != fixture_date:
-                    fixture_in_db.date = fixture_date
-
-                fixture_in_db.save()
-                return fixture_in_db
-            else:
-                sources = {source_name: current_timestamp}
-
-                fixture_in_db = Fixture.objects.create(
-                    api_sport_id=fixture["fixture"]['id'],
-                    fixture_id=fixture_id,
-                    home_id=fixture["teams"]["home"]["id"],
-                    away_id=fixture["teams"]["away"]["id"],
-                    home_team_name=fixture["teams"]["home"]["name"],
-                    away_team_name=fixture["teams"]["away"]["name"],
-                    league=league_obj,
-                    league_round=fixture['league'].get('round', ''),
-                    country=country_obj,  # Safely handles None
-                    date=fixture_date,
-                    home_score=fixture["score"]["fulltime"]["home"],
-                    away_score=fixture["score"]["fulltime"]["away"],
-                    status=fixture["fixture"]["status"]["long"],
-                    season=fixture["league"]["season"],
-                    sources=sources,
-                )
-                return fixture_in_db
-
-        except KeyError as e:
-            print(f"[Error] Missing expected key: {e}")
-            raise ValueError(f"Invalid payload structure: missing key {e}") from e
-
-        except Exception as e:
-            print(f"[Error in create_or_update_fixture_in_db]: {e}")
-            raise
+            return fixture_in_db
 
     @staticmethod
     def prepare_scraped_data_to_db_fixture_format(raw_fixture):
@@ -407,7 +417,6 @@ class FixtureService:
         except Exception as fixture_error:
             print(f"❌ Error: {str(fixture_error)}")
             raise fixture_error
-
 
     @staticmethod
     def get_grouped_fixtures():
@@ -546,7 +555,26 @@ class FixtureService:
             # Create the permanent history record before deleting the active fixture
             FixtureService._create_archive_entry(fixture)
             fixture.delete()
-            print(f"Successfully resolved and archived fixture {fixture_id}.")
+
+            # =========================================================
+            # 🔍 POST-CONDITION VALIDATION (The Verification Phase)
+            # =========================================================
+
+            # Check A: Verify the active fixture was ACTUALLY deleted from DB
+            if Fixture.objects.filter(fixture_id=fixture_id).exists():
+                raise ValueError(f"Post-check failed: Fixture {fixture_id} still exists in active table!")
+
+            # Check B: Verify the archive record was ACTUALLY created
+            if not ArchivedFixture.objects.filter(fixture_id=fixture_id).exists():
+                raise ValueError(f"Post-check failed: Archive record for {fixture_id} was not created!")
+
+            # Check C: Verify team stats updated as expected (e.g., for draw, no_draw must be 0)
+            if fixture.is_draw:
+                teams_updated = Team.objects.filter(id__in=[home_team_id, away_team_id], no_draw=0)
+                if teams_updated.count() != 2:
+                    raise ValueError(f"Post-check failed: Team stats were not reset to 0 for fixture {fixture_id}!")
+
+            print(f"✅ Successfully resolved and verified fixture {fixture_id}.")
 
         except ObjectDoesNotExist:
             print(f"Resolve failed: Fixture {fixture_id} does not exist in DB.")
@@ -556,8 +584,6 @@ class FixtureService:
             print(f"Error resolving fixture {fixture_id}: {e}")
             # Re-raise so @transaction.atomic automatically rolls back all DB changes
             raise
-
-
 
     @staticmethod
     def resolve_fixture_canceled(fixture_id):

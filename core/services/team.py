@@ -3,7 +3,7 @@ from django.db import transaction
 from django.db.models import Sum, DecimalField
 from django.db.models.functions import Coalesce
 
-from ..models import Team, ArchivedFixture
+from ..models import Team, ArchivedFixture, League, Fixture
 from django.db.models import Q
 
 
@@ -89,6 +89,55 @@ class TeamService:
                 s['draw'] = 0
 
         return s
+
+    @staticmethod
+    def check_team_league_change(fixture):
+        """
+            Extracts teams and payload from the Fixture model instance.
+            If round starts with 'Regular Season', checks and updates home and away
+            teams' league if it differs from the fixture's league.
+        """
+
+        # 1. Guard check: Must be "Regular Season" not cup round
+        if not fixture['league']['round'].startswith("Regular Season"):
+            return
+
+        # 1.1 Guard check: league has to be in DB and league_obj in fixture
+        elif not fixture['league']['db_object']:
+            return
+
+        h_id = fixture["teams"]["home"]["id"]
+        a_id = fixture["teams"]["away"]["id"]
+
+        # Fetch both teams in a single database query
+        teams_by_id = Team.objects.in_bulk([h_id, a_id])
+
+        # .get() on a dictionary safely returns None if the key isn't present!
+        home_team = teams_by_id.get(h_id)  # Returns Team object or None
+        away_team = teams_by_id.get(a_id)  # Returns Team object or None
+        league_obj = fixture['league']['db_object']
+        teams_to_update = []
+
+        # 2. Iterate through present teams
+        for team_obj in [home_team, away_team]:
+
+            if team_obj is None:
+                continue
+
+            # Compare existing team league_id with the incoming league model instance ID
+            if team_obj.league_id != league_obj.id:
+                print(
+                    f"🔄 League change for {team_obj.name}: "
+                    f"Old League ({team_obj.league_id}) -> "
+                    f"New League ({league_obj.id})")
+
+                # Set the new league relationship
+                team_obj.league = league_obj
+                teams_to_update.append(team_obj)
+
+        # 3. Save only updated teams efficiently
+        for team in teams_to_update:
+            team.save(update_fields=["league"])
 
     @staticmethod
     def redistribute_team_bets_by_no_draw_level():

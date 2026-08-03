@@ -179,26 +179,34 @@
 </style>
 
 <div class="matrix-wrapper" id="dist-form"
-     x-data="{
-     selectedId: null,
-     selectedName: '',
-     selectedLeague: '',
-     allBets: 0.00,
-     forDistributionInput: '',
-     /* Create a JS object of all team bets: { 1: 50.00, 2: 12.50 } */
-     teamBets: {
-        {# Loop through the matrix levels, then the teams in each level #}
-        {% for count, team_list in matrix.items %}
-            {% for team in team_list %}
-                '{{ team.id }}': {{ team.all_bets|default:0.00 }}{% if not forloop.parentloop.last or not forloop.last %},{% endif %}
+    x-data="{
+    selectedId: null,
+    selectedName: '',
+    selectedLeague: '',
+    allBets: 0.00,
+    forDistributionInput: '',
+    /* Create a JS object of all team bets: { 1: 50.00, 2: 12.50 } */
+    teamBets: {
+            {% for count, team_list in matrix.items %}
+                {% for team in team_list %}
+                    {{ team.id }}: {{ team.all_bets|default:0.00 }},
+                {% endfor %}
             {% endfor %}
-        {% endfor %}
-     },
-     // This Regex checks for: Optional digits, an optional dot, and more digits
-     // Examples: '12', '12.5', '0.75' are valid. '12.' or 'abc' are invalid.
-     isValidDecimal(val) {
-        return /^\d+(\.\d{1,2})?$/.test(val) && parseFloat(val) > 0;
-     }}">
+            0: 0
+    },
+    // This Regex checks for: Optional digits, an optional dot, and more digits
+    // Examples: '12', '12.5', '0.75' are valid. '12.' or 'abc' are invalid.
+    isValidDecimal(val) {
+    return /^\d+(\.\d{1,2})?$/.test(val) && parseFloat(val) > 0;
+    }}"
+    @bet-updated.window="
+        if ($event.detail.teamId) {
+            const tId = parseInt($event.detail.teamId);
+            const newAmt = parseFloat($event.detail.amount);
+            teamBets = { ...teamBets, [tId]: newAmt };
+            forDistributionInput = '';
+        }
+     ">
 
     <div class="distribution-options" style="position: relative";>
         <div class="distribution-table-buttons" style="display: flex;
@@ -243,28 +251,13 @@
                    {#:style="isValidDecimal(forDistributionInput) ? 'border-color: green' : 'border-color: #cbd5e0'">#}
 
             <button type="button"
-                    hx-post="/for_distribution/"
-                    hx-swap="none"
-                    {# USE THIS SYNTAX TO GRAB ALPINE DATA #}
-                    {# Since the button is INSIDE the x-data, you can just use 'this' #}
+                    hx-post="{% url 'for_distribution' %}"
+                    hx-target="#distribution-table"
+                    hx-swap="outerHTML"
                     hx-vals='js:{
                         "team_id": Alpine.$data(document.getElementById("dist-form")).selectedId,
                         "for_distribution": Alpine.$data(document.getElementById("dist-form")).forDistributionInput
                     }'
-                    {#@click="console.log('ID:', selectedId, 'Amount:', forDistributionInput)"#}
-                    {#/* When the request finishes successfully... */#}
-                    hx-on:htmx:after-request="
-                        if(event.detail.successful) {
-
-                            const response = JSON.parse(event.detail.xhr.responseText);
-                            $store.distribution.initData(response.new_data);
-                            Alpine.$data(document.getElementById('dist-form')).forDistributionInput = '';
-
-                        } else {
-                            alert('Server error: ' + event.detail.xhr.status);
-                        }
-                    "
-                    {#@click="console.log('Processing distribution...')"#}
                     :disabled="!isValidDecimal(forDistributionInput)"
                     class="submit-btn">
                 Submit Value

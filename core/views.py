@@ -182,7 +182,6 @@ def teams_list_partial(request):
 
 
 @login_required
-@transaction.atomic
 def fetch_and_save_fixtures(request):
     if request.method != "POST":
         return HttpResponse("Method not allowed", status=405)
@@ -196,7 +195,7 @@ def fetch_and_save_fixtures(request):
     try:
         # If fetch_and_save is an instance method:
         service = FixtureService()
-        service.fetch_and_save_fixtures(date_from, date_to)
+        summary = service.fetch_and_save_fixtures(date_from, date_to)
 
         # But we call the static helper directly:
         grouped_data = FixtureService.get_grouped_fixtures()
@@ -206,17 +205,28 @@ def fetch_and_save_fixtures(request):
         })
 
         response = HttpResponse(html)
+
+        # Craft a contextual toast message based on results
+        if summary.get("errors"):
+            failed_count = len(summary["errors"])
+            toast_text = f"Saved {summary['created']} fixtures, but {failed_count} failed."
+            toast_level = "error"
+        else:
+            toast_text = f"Successfully updated {summary['created']} fixtures!"
+            toast_level = "success"
+
         # We manually add your custom trigger to the HTML response
         # so the toast pops up along with the new table
         response["HX-Trigger"] = json.dumps({
             "showToast": {
-                "text": "Fixtures updated successfully!",
-                "level": "success"
+                "text": toast_text,
+                "level": toast_level
             }
         })
         return response
 
     except Exception as e:
+        print(f"❌ View-level error: {e}")
 
         # ERROR: Use your specific toast_response helper
         # We pass the error message and the 'error' level
@@ -491,20 +501,20 @@ def get_distribution_partial(request):
 
 @login_required
 @require_POST
+# responsible when team and amount is chosen from the UI and send to server
+# so chosen amount is removed from team bets and "for recover" entry is created
 def for_distribution_view(request):
     team_id = request.POST.get("team_id")
     value_str = request.POST.get("for_distribution")
 
-    # 1. Validation
+    # 1. Validation using your toast_response helper
     if not team_id or not value_str:
-        return render(request, "partials/_toast.html", {"message": "Missing required data.", "status": "error"},
-                      status=400)
+        return toast_response("Missing required data.", level="error", status_code=400)
 
     try:
         value = Decimal(value_str)
     except (InvalidOperation, TypeError):
-        return render(request, "partials/_toast.html", {"message": "Invalid number format.", "status": "error"},
-                      status=400)
+        return toast_response("Invalid number format.", level="error", status_code=400)
 
     team = get_object_or_404(Team, id=team_id)
 
@@ -521,21 +531,34 @@ def for_distribution_view(request):
                 bets_writen_off=value
             )
 
-        # 3. SUCCESS RESPONSE (The Clean HTMX Way)
-        # Fetch the fresh, updated database rows
+        # 3. Fetch fresh dataset for response
         recoveries = ForRecover.objects.all().order_by('-date_added_to_recover')
 
         context = {
             "initial_recoveries": recoveries,
-            "success_toast": f"Created entry for {team.name} successfully!"
         }
 
-        # Return the whole refreshed table component directly to the screen
-        return render(request, "partials/_distribution_table.html", context)
+        # 4. Render the table component
+        response = render(request, "partials/_distribution_table.html", context)
+
+        # 5. Add both triggers to HX-Trigger header
+        # - betUpdated updates the team's local Alpine balance in matrix-wrapper
+        # - showToast triggers your JS notification listener
+        response["HX-Trigger"] = json.dumps({
+            "betUpdated": {
+                "teamId": team.id,
+                "amount": float(team.all_bets)
+            },
+            "showToast": {
+                "text": f"Created entry for {team.name} successfully!",
+                "level": "success"
+            }
+        })
+
+        return response
 
     except Exception as e:
-        return render(request, "partials/_toast.html", {"message": f"Database error: {str(e)}", "status": "error"},
-                      status=500)
+        return toast_response(f"Database error: {str(e)}", level="error", status_code=500)
 
 
 @login_required
