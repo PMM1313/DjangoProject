@@ -1,5 +1,5 @@
 from decimal import Decimal
-
+from typing import Dict, Tuple, Optional
 from django.db import models
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -416,7 +416,7 @@ class ExternalMapping(models.Model):
     )
 
     country = models.ForeignKey(
-        'Country',  # Replace with your actual Country model name
+        'Country',  # string representation of the model is legit
         on_delete=models.CASCADE,
         null=True,
         blank=True,
@@ -447,6 +447,14 @@ class ExternalMapping(models.Model):
                 content_type=ContentType.objects.get_for_model(Country)
             ).values_list('external_name', 'object_id')
         )
+
+    @staticmethod
+    def get_league_mappings() -> Dict[Tuple[str, Optional[int]], int]:
+        queryset = ExternalMapping.objects.filter(
+            content_type=ContentType.objects.get_for_model(League)
+        ).values_list('external_name', 'country_id', 'object_id')
+
+        return {(name, country_id): obj_id for name, country_id, obj_id in queryset}
 
 
 class PendingImport(models.Model):

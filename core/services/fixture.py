@@ -3,6 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP, ROUND_UP
 from typing import Optional
 
 import requests, traceback
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction, IntegrityError
 from datetime import datetime, timedelta, date
 from django.core.exceptions import ObjectDoesNotExist
@@ -84,6 +85,7 @@ class FixtureService:
         }
         # Own DB mappings and current mappings during this execution
         country_mappings = ExternalMapping.get_country_mappings()
+        league_mappings = ExternalMapping.get_league_mappings()
 
         tracked_team_ids = set(Team.objects.filter(is_active=True).values_list('id', flat=True))
         used_league_ids = set(League.objects.filter(is_used=True).values_list("id", flat=True))
@@ -187,6 +189,7 @@ class FixtureService:
                 continue
 
             print(f"step 1-4")
+
             league_obj = League.objects.filter(id=item["league"]["id"]).select_related('country').first()
             item["league"]["db_object"] = league_obj
 
@@ -210,9 +213,23 @@ class FixtureService:
                 # Mark it as processed so subsequent iterations skip the DB lookups/downloads
                 processed_league_logos.add(league_obj.id)
 
-            # league_country = league_obj.country  # Assuming League model links to Country
+            # MAP LEAGUE IF NOT MAPPED
+            if (league_obj.name, country_obj.id) not in league_mappings:
+                league_mappings[(league_obj.name, country_obj.id)] = league_obj.id
+
+                content_type = ContentType.objects.get_for_model(League)
+
+                ExternalMapping.objects.create(
+                    external_name=league_obj.name,
+                    country_id=country_obj.id,
+                    content_type=content_type,
+                    object_id=league_obj.id
+                )
+
+                print(f'League: {league_obj.name} Country: {country_obj.name} added to Mappings table !')
 
             print(f"step 2-1")
+
             # League tracked → auto-import teams for new team that are not in DB, but league is tracked
             # and check if the round is regular season round, so not add teams that play in Promotion
             # for upper league and are actually in lower league, but API provides upper league ID
@@ -237,6 +254,9 @@ class FixtureService:
 
                 # check for team logo
 
+
+
+
             print(f"step 2-2")
             # 3. Check for existing fixture using IDs. can be updated here if new date, match status...
             if (h_id, a_id, league_id) in existing_fixtures:
@@ -255,13 +275,32 @@ class FixtureService:
             home_team_internal = Team.objects.filter(id=item["teams"]["home"]["id"]).first()
             away_team_internal = Team.objects.filter(id=item["teams"]["away"]["id"]).first()
 
-            # 2. Set names: Use internal name if object exists, else fallback to API name
-            h_name = home_team_internal.name if home_team_internal else item["teams"]["home"]["name"]
-            a_name = away_team_internal.name if away_team_internal else item["teams"]["away"]["name"]
+            # 2. Set names: Use internal name if object exists, else fallback to API-Sports name
+            # if internal team name exist cast it to the fixture to use internal team names, if not use
+            # provided names rom API
 
-            item["teams"]["home"]["name"] = h_name
-            item["teams"]["away"]["name"] = a_name
+            item["teams"]["home"]["name"] = home_team_internal.name if home_team_internal else h_name
+            item["teams"]["away"]["name"] = away_team_internal.name if away_team_internal else a_name
 
+            # check for league change for each team
+            for team in [home_team_internal, away_team_internal]:
+                if team:
+                    # use league obj because i will need it if team has new league to set foreign key
+                    # this check mean that team in DB has different league id than in fixture, so i check for
+                    # regular season, that means the league is actual league, not a CUP
+                    if team.league_id != league_obj.id and item['league']['round'].startswith("Regular Season"):
+
+
+
+                        # league IDs are provided from API-source
+                        # i use the logic that the bigger placed league has id > than smaller league
+                        # check for promotion
+
+                        # check for relegation
+                        pass
+
+
+            # update or create the fixture
             print(f"step 2-4")
             try:
                 # Wrap ONLY the individual DB write in an atomic transaction
@@ -273,7 +312,8 @@ class FixtureService:
                     existing_fixtures.add((h_id, a_id, league_id))
 
             except Exception as e:
-                print(f"❌ Failed to save fixture {h_name} vs {a_name}: {e}")
+                print(f"❌ Failed to save fixture {item['teams']['home']['name']} "
+                      f"vs {item['teams']['away']['name']}: {e}")
                 print(traceback.format_exc())
                 results['errors'].append({
                     'fixture': f"{item['teams']['home']['name']} vs {item['teams']['away']['name']}",
@@ -301,10 +341,12 @@ class FixtureService:
             print(f"step 2-7")
             # The corrected, more accurate version:
             league_status = f"League: {league_obj} Used:{is_league_tracked}"
-            status = f"{h_name}: {is_h_tracked}, {a_name}: {is_a_tracked}"
+            status = f"{item['teams']['home']['name']}: {is_h_tracked}, " \
+                     f"{item['teams']['away']['name']}: {is_a_tracked}"
 
             print(f"step 2-8")
-            print(f"Created: {h_name} vs {a_name} (Tracked: {status}) ({league_status})")
+            print(f"Created: {item['teams']['home']['name']} vs {item['teams']['away']['name']} "
+                  f"(Tracked: {status}) ({league_status})")
 
         return results
 
@@ -570,8 +612,11 @@ class FixtureService:
 
             # Check C: Verify team stats updated as expected (e.g., for draw, no_draw must be 0)
             if fixture.is_draw:
-                teams_updated = Team.objects.filter(id__in=[home_team_id, away_team_id], no_draw=0)
-                if teams_updated.count() != 2:
+                # Query only the teams that actually exist in your database
+                teams_to_check = Team.objects.filter(id__in=[home_team_id, away_team_id])
+
+                # If any existing team fails to have no_draw == 0, raise an error
+                if teams_to_check.exists() and teams_to_check.exclude(no_draw=0).exists():
                     raise ValueError(f"Post-check failed: Team stats were not reset to 0 for fixture {fixture_id}!")
 
             print(f"✅ Successfully resolved and verified fixture {fixture_id}.")
