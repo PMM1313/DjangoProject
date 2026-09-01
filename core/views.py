@@ -1,4 +1,6 @@
 import json
+
+import sys
 import traceback
 
 from django.contrib.contenttypes.models import ContentType
@@ -155,34 +157,38 @@ def fixtures_partial(request):
 
 @login_required
 def teams_list_partial(request):
-    # Subquery 1: The "Live" fixture (is_played=True)
-    live_fixture = Fixture.objects.filter(
-        Q(home_id=OuterRef('id')) | Q(away_id=OuterRef('id')),
-        is_played=True
-    ).order_by('-date')  # Get the most recent live one
+    try:
+        # Subquery 1: The "Live" fixture (is_played=True)
+        live_fixture = Fixture.objects.filter(
+            Q(home_id=OuterRef('id')) | Q(away_id=OuterRef('id')),
+            is_played=True
+        ).order_by('-date')  # Get the most recent live one
 
-    # Subquery 2: The "Upcoming" fixture (is_played=False)
-    upcoming_fixture = Fixture.objects.filter(
-        Q(home_id=OuterRef('id')) | Q(away_id=OuterRef('id')),
-        is_played=False
-    ).order_by('date')  # Get the soonest upcoming one
+        # Subquery 2: The "Upcoming" fixture (is_played=False)
+        upcoming_fixture = Fixture.objects.filter(
+            Q(home_id=OuterRef('id')) | Q(away_id=OuterRef('id')),
+            is_played=False
+        ).order_by('date')  # Get the soonest upcoming one
 
-    teams = Team.objects.select_related('country', 'league').annotate(
-        # Live Data
-        live_date=Subquery(live_fixture.values('date')[:1]),
-        live_home=Subquery(live_fixture.values('home_team_name')[:1]),
-        live_away=Subquery(live_fixture.values('away_team_name')[:1]),
+        teams = Team.objects.select_related('country', 'league').annotate(
+            # Live Data
+            live_date=Subquery(live_fixture.values('date')[:1]),
+            live_home=Subquery(live_fixture.values('home_team_name')[:1]),
+            live_away=Subquery(live_fixture.values('away_team_name')[:1]),
 
-        # Upcoming Data
-        next_date=Subquery(upcoming_fixture.values('date')[:1]),
-        next_home=Subquery(upcoming_fixture.values('home_team_name')[:1]),
-        next_away=Subquery(upcoming_fixture.values('away_team_name')[:1]),
-    ).all().order_by('name')
+            # Upcoming Data
+            next_date=Subquery(upcoming_fixture.values('date')[:1]),
+            next_home=Subquery(upcoming_fixture.values('home_team_name')[:1]),
+            next_away=Subquery(upcoming_fixture.values('away_team_name')[:1]),
+        ).all().order_by('name')
 
-    nd_bets = calculate_total_bets_based_on_no_draw_count()
+        nd_bets = calculate_total_bets_based_on_no_draw_count()
 
-    for team in teams:
-        try:
+        current_team = None  # Track current loop item safely
+
+        for team in teams:
+            current_team = team
+
             team.simulated_bets = nd_bets.get(team.no_draw, Decimal("0.00"))
 
             # Calculate percentage difference and comparison status
@@ -200,17 +206,27 @@ def teams_list_partial(request):
                 team.bet_diff_pct = Decimal("0.0")
                 team.bet_status = 'equal'
 
-        except Exception as e:
-            # Prints the exact team details and full stack trace to Gunicorn/Coolify stdout
-            print(f"\n[ERROR IN TEAMS_LIST_PARTIAL] Failed processing Team ID={team.id}, Name='{team.name}'")
-            print(
-                f"team.all_bets={repr(team.all_bets)}, team.simulated_bets={repr(getattr(team, 'simulated_bets', None))}")
-            traceback.print_exc()
+        return render(request, 'partials/teams_table.html', {'teams': teams})
 
-            # Re-raise the exception so Gunicorn triggers a standard 500 error page / HTMX error
-            raise e
+    except Exception as e:
+        # 1. Output directly to stderr
+        sys.stderr.write("\n================ [ERROR IN TEAMS_LIST_PARTIAL] ================\n")
 
-    return render(request, 'partials/teams_table.html', {'teams': teams})
+        # 2. Inspect state safely without raising UnboundLocalError
+        if 'current_team' in locals() and current_team is not None:
+            sys.stderr.write(f"Failed processing Team ID={current_team.id}, Name='{current_team.name}'\n")
+            sys.stderr.write(f"all_bets={repr(getattr(current_team, 'all_bets', None))}, "
+                             f"simulated_bets={repr(getattr(current_team, 'simulated_bets', None))}\n")
+        else:
+            sys.stderr.write("Crash occurred before or outside the team loop iteration.\n")
+
+        # 3. Print traceback and FORCE IMMEDIATE FLUSH to Coolify logs
+        traceback.print_exc(file=sys.stderr)
+        sys.stderr.flush()
+
+        # 4. Re-raise 500 error
+        raise e
+
 
 
 @login_required
