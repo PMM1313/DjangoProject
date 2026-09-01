@@ -39,6 +39,7 @@ from .services.for_recover import format_recovery_data
 from .services import for_recover
 from .services.league import LeagueService
 from .services.stats import TrackingValues
+from .services.bet import calculate_total_bets_based_on_no_draw_count
 
 
 class TeamListCreateView(LoginRequiredMixin, APIView):
@@ -177,6 +178,26 @@ def teams_list_partial(request):
         next_home=Subquery(upcoming_fixture.values('home_team_name')[:1]),
         next_away=Subquery(upcoming_fixture.values('away_team_name')[:1]),
     ).all().order_by('name')
+
+    nd_bets = calculate_total_bets_based_on_no_draw_count()
+
+    for team in teams:
+        team.simulated_bets = nd_bets.get(team.no_draw, Decimal("0.00"))
+
+        # Calculate percentage difference and comparison status
+        if team.simulated_bets > Decimal("0.00"):
+            diff_pct = ((team.all_bets - team.simulated_bets) / team.simulated_bets) * Decimal("100")
+            team.bet_diff_pct = abs(round(diff_pct, 1))  # e.g., 15.5
+
+            if team.all_bets > team.simulated_bets:
+                team.bet_status = 'higher'
+            elif team.all_bets < team.simulated_bets:
+                team.bet_status = 'lower'
+            else:
+                team.bet_status = 'equal'
+        else:
+            team.bet_diff_pct = Decimal("0.0")
+            team.bet_status = 'equal'
 
     return render(request, 'partials/teams_table.html', {'teams': teams})
 
@@ -635,21 +656,6 @@ def get_streaks(request):
 
 
 @login_required
-def leagues_tab_page(request):
-    """Loads the entire layout for the Leagues tab."""
-    leagues = League.objects.select_related('country').all().order_by('name')
-    active_count = leagues.filter(in_season=True).count()
-    used_count = leagues.filter(is_used=True).count()
-
-    context = {
-        'leagues': leagues,
-        'active_count': active_count,
-        'used_count': used_count,
-    }
-    return render(request, 'leagues_tab/leagues_tab_page.html', context)
-
-
-@login_required
 def imports_tab_page(request):
     """Loads the entire layout for the Imports tab."""
 
@@ -882,11 +888,27 @@ def save_manual_mappings(request):
         return toast_response(message=f"Error saving mappings: {str(e)}", level="error", status_code=400)
 
 
+# ------------ LEAGUES TAB ---------------------
+@login_required
+def leagues_tab_page(request):
+    """Loads the entire layout for the Leagues tab."""
+    leagues = League.objects.select_related('country').all().order_by('country__name', 'id')
+    active_count = leagues.filter(in_season=True).count()
+    used_count = leagues.filter(is_used=True).count()
+
+    context = {
+        'leagues': leagues,
+        'active_count': active_count,
+        'used_count': used_count,
+    }
+    return render(request, 'leagues_tab/leagues_tab_page.html', context)
+
+
 @login_required
 def leagues_list_partial(request):
     """Returns ONLY the table rows. Clean and simple."""
     # We ignore 'q' because Alpine.js handles filtering on the frontend
-    leagues = League.objects.select_related('country').all().order_by('name')
+    leagues = League.objects.select_related('country').all().order_by('country__name', 'id')
 
     return render(request, 'leagues_tab/leagues_list_partial.html', {'leagues': leagues})
 
@@ -1004,6 +1026,27 @@ def save_league_from_api(request):
     response['HX-Trigger'] = 'leagueAdded'
     return response
 
+
+@login_required
+@require_POST
+def toggle_regular_league(request, league_id):
+    # wont crash if league doesnt exist
+    league = get_object_or_404(League, id=league_id)
+
+    # flip True/False
+    league.regular_league = not league.regular_league
+
+    # save only the field
+    league.save(update_fields=['regular_league'])
+
+    # check teams for league changes based on fixtures in DB
+    LeagueService.process_all_fixtures_league_changes()
+
+    # Return just the updated button element back to HTMX
+    return render(request, 'leagues_tab/partials/regular_button.html', {'league': league})
+
+
+# --------------------- END LEAGUES TAB ----------------------------
 
 @login_required
 @transaction.atomic

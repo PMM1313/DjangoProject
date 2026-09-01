@@ -1,3 +1,5 @@
+
+
 <tr id="fixture-row-{{ f.fixture_id }}"
     class="fixture-row date-{{ f.league.id }}-{{ f.date|date:'Ymd' }}"
     {#hx-indicator="this"#}
@@ -7,6 +9,20 @@
         <div class="match-container">
             <div class="fixture-time">{{ f.date|date:"H:i" }}</div>
             <div class="teams-wrap">
+
+                <div class="league-change">
+
+                    {% if f.home_league_change %}
+                        {% if f.home_league_change.status == 'Promotion' %}
+                            <span class="league-change-badge badge-promotion" title="Promoted from {{ f.home_league_change.old_league.name }} (UI views: {{ f.home_league_change.showed_ui }})"><span style="margin-right: 3px;">⬆</span>Promoted</span>
+                        {% else %}
+                            <!-- Relegated Badge -->
+                            <span class="league-change-badge badge-relegation" title="Relegated from {{ f.home_league_change.old_league.name }} (UI views: {{ f.home_league_change.showed_ui }})"><span style="margin-right: 3px;">⬇</span>Relegated</span>
+                        {% endif %}
+                    {% endif %}
+
+                </div>
+
                 <div class="team-home">{{ f.home_team_name }}</div>
 
                 <div id="score-area-{{ f.fixture_id }}" style="display: flex; align-items: center;">
@@ -21,7 +37,22 @@
                     </div>
                 </div>
 
-                <div class="team-away">{{ f.away_team_name }}</div>
+                <div class="team-away">
+                    {{ f.away_team_name }}
+                </div>
+
+                <div class="league-change">
+
+                    {% if f.away_league_change %}
+                        {% if f.away_league_change.status == 'Promotion' %}
+                            <span class="league-change-badge badge-promotion" title="Promoted from {{ f.away_league_change.old_league.name }} (UI views: {{ f.away_league_change.showed_ui }})"><span style="margin-right: 3px;">⬆</span>Promoted</span>
+
+                        {% else %}
+                            <span class="league-change-badge badge-promotion" title="Relegated from {{ f.away_league_change.old_league.name }} (UI views: {{ f.away_league_change.showed_ui }})"><span style="margin-right: 3px;">⬇</span>Relegated</span>
+                        {% endif %}
+                    {% endif %}
+
+                </div>
             </div>
         </div>
     </td>

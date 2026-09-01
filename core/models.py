@@ -21,6 +21,7 @@ class League(models.Model):
     id = models.PositiveIntegerField(primary_key=True)  # custom PK
     country = models.ForeignKey(Country, on_delete=models.PROTECT)
     name = models.CharField(max_length=30)
+    regular_league = models.BooleanField(default=False)
     in_season = models.BooleanField(default=False)
     season_start = models.DateField(null=True, blank=True, default=None)
     season_end = models.DateField(null=True, blank=True, default=None)
@@ -28,6 +29,7 @@ class League(models.Model):
     is_used = models.BooleanField(default=False)
     last_updated_date = models.DateField(null=True, blank=True, default=None)
     logo = models.ImageField(upload_to='leagues/logos/', null=True, blank=True)
+    hierarchy = models.PositiveIntegerField(null=True, blank=True)  # hierarchy of leagues in the country
 
     def __str__(self):
         return f"{self.name} ({self.country.name})"
@@ -41,6 +43,7 @@ class Team(models.Model):
     # PROTECT ensures you can't delete a League/Country that has active teams
     country = models.ForeignKey(Country, on_delete=models.PROTECT, null=True, blank=True)
     league = models.ForeignKey(League, on_delete=models.PROTECT, null=True, blank=True)
+    has_league_changes = models.BooleanField(default=False)
 
     all_bets = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     extra_bets = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
@@ -77,6 +80,11 @@ class Team(models.Model):
             )
         )
         return result['total']
+
+    @property
+    def recent_league_change(self):
+        """Returns the single most recent TeamLeagueHistory instance, or None."""
+        return self.league_histories.first()
 
 
 class Fixture(models.Model):
@@ -474,3 +482,43 @@ class PendingImport(models.Model):
         return f"""Import from {self.source} at {self.created_at}. 
                 Processed: {self.is_processed}
                 Fixtures imported: {self.are_fixtures_imported}"""
+
+
+class TeamLeagueHistory(models.Model):
+    class StatusChoices(models.TextChoices):
+        PROMOTION = 'Promotion', 'Promotion'
+        RELEGATION = 'Relegation', 'Relegation'
+
+    # Primary key (Django auto-creates 'id' as AutoField if omitted,
+    # but defined explicitly here per your requirement)
+    id = models.BigAutoField(primary_key=True)
+
+    team = models.ForeignKey(
+        'Team',
+        on_delete=models.CASCADE,
+        related_name='league_histories'
+    )
+    old_league = models.ForeignKey(
+        League,
+        on_delete=models.PROTECT,
+        related_name='teams_promoted_relegated_from',
+        null=True,
+        blank=True
+    )
+    new_league = models.ForeignKey(
+        League,
+        on_delete=models.PROTECT,
+        related_name='teams_promoted_relegated_to'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=StatusChoices.choices
+    )
+    showed_ui = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.team.name}: {self.old_league} -> {self.new_league} ({self.status})"

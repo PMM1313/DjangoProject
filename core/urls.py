@@ -57,6 +57,7 @@ urlpatterns = [
     path('search-external-leagues/', views.search_external_leagues, name='search_external_leagues'),
     path('save-league-from-api/', views.save_league_from_api, name='save_league_from_api'),
     path('change-league-status/', views.change_league_used_or_not, name='change_league_used_or_not'),
+    path('leagues/<int:league_id>/toggle-regular/', views.toggle_regular_league, name='toggle_regular_league'),
 
     # adding manual plus to for recover entry
     path('update_recovery_amount_manual_plus/', views.update_recovery_amount, name='update_recovery_amount_manual_plus'),

@@ -69,6 +69,7 @@
                                 <th style="padding: 12px;">Country</th>
                                 <th style="padding: 12px;">Status</th>
                                 <th style="padding: 12px;">Used</th>
+                                <th style="padding: 12px;">Regular</th>
                                 <th style="padding: 12px; text-align: center;">Marked</th>
                             </tr>
                         </thead>
@@ -81,7 +82,7 @@
                                     row.innerText.toLowerCase().includes(search.toLowerCase()) ||
                                     row.getAttribute('data-search')?.includes(search.toLowerCase())
                                 )">
-                                <td colspan="3" style="padding: 40px; text-align: center; color: #999; background: #fff;">
+                                <td colspan="6" style="padding: 40px; text-align: center; color: #999; background: #fff;">
                                     No leagues match "<span x-text="search"></span>"
                                 </td>
                             </tr>

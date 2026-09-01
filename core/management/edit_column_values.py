@@ -13,6 +13,7 @@ from core.models import ArchivedFixture
 from core.models import ArchivedFixture, League, Fixture
 from core.services import fixture, bet
 from core.services.team import TeamService
+from core.services import browserless
 
 
 def update_all_fixture_ids():
@@ -75,10 +76,9 @@ def test_equalizing_bets():
 
 
 def test_simulating_all_bets():
-    nd_count = 5
-    all_bets = bet.calculate_total_bets_based_on_no_draw_count(nd_count)
+    all_bets = bet.calculate_total_bets_based_on_no_draw_count()
     print(all_bets)
 
 
 if __name__ == "__main__":
-    test_simulating_all_bets()
+    browserless.scrape_odds_portal()

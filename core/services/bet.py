@@ -2,19 +2,40 @@ from decimal import Decimal
 from django.db.models import Sum
 from ..models import Team, Settings
 from decimal import Decimal, ROUND_HALF_UP, ROUND_UP
+from django.db.models import Max
 
 
-def calculate_total_bets_based_on_no_draw_count(no_draw_count: int):
-    settings = Settings.load()
-    min_bet = settings.min_bet
-    coef = Decimal("3.60")
+def calculate_total_bets_based_on_no_draw_count():
+    """
+
+    Calculates theoretical cumulative bets for each ND (no draw) step from 0
+    up to the highest ND value among all active teams.
+
+    :return: dict {nd (int): all_bets (Decimal)}
+
+    """
+    # Fetch active teams and get the highest 'no_draw' count
+    active_teams = Team.objects.filter(is_active=True)
+
+    # Get maximum ND value; default to 0 if no active teams or all NDs are null
+    max_nd = active_teams.aggregate(max_nd=Max('no_draw'))['max_nd'] or 0
+
+    results = {
+        0: Decimal("0.00")
+    }
     all_bets = Decimal("0.00")
 
-    for play in range(1, no_draw_count + 1):
-        bet = calculate_required_bet(all_bets, coef)
-        all_bets += bet
+    settings = Settings.load()
 
-    return all_bets, min_bet, coef
+    avg_coefficient = settings.avg_coefficient
+
+    # Range starts at 0 up to max_nd inclusive
+    for play in range(1, max_nd + 1):
+        bet = calculate_required_bet(all_bets, avg_coefficient)
+        all_bets += bet
+        results[play] = all_bets
+
+    return results
 
 
 def calculate_required_bet(team_all_bets, coef):

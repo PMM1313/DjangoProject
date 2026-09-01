@@ -5,7 +5,9 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from urllib.parse import urlparse
 
-from ..models import Team, Country, League
+from django.db import transaction
+
+from ..models import Team, Country, League, TeamLeagueHistory, Fixture
 # services/league_service.py
 from datetime import date, timedelta
 from .country import CountryService
@@ -58,6 +60,72 @@ class LeagueService:
         api_data = [item for item in full_list if item['league']['id'] not in existing_ids]
 
         return api_data
+
+    @staticmethod
+    def check_for_league_change(fixture, ht_obj, at_obj, teams_by_id=None):
+        """
+        Checks a single Fixture model instance and its teams for league transitions.
+        """
+        league_obj = fixture.league
+
+        # Optimization: Use pre-fetched lookup dict if provided, else query DB
+        if teams_by_id is not None:
+            home_team = teams_by_id.get(fixture.home_id)
+            away_team = teams_by_id.get(fixture.away_id)
+        else:
+            home_team = ht_obj
+            away_team = at_obj
+
+        for team in [home_team, away_team]:
+            if not team:
+                continue
+
+            round_str = str(fixture.league_round or '')
+            is_different_league = team.league_id != league_obj.id
+            is_regular_league = league_obj.regular_league
+            is_regular_season_match = round_str.lower().startswith("regular season")
+
+            if is_different_league and is_regular_league and is_regular_season_match:
+                old_league_obj = team.league
+
+                # Smaller League ID indicates higher rank (e.g., Premier League ID < Championship ID)
+                if league_obj.id < old_league_obj.id:
+                    movement_status = TeamLeagueHistory.StatusChoices.PROMOTION
+                else:
+                    movement_status = TeamLeagueHistory.StatusChoices.RELEGATION
+
+                with transaction.atomic():
+                    # A. Create the history record
+                    TeamLeagueHistory.objects.create(
+                        team=team,
+                        old_league=old_league_obj,
+                        new_league=league_obj,
+                        status=movement_status,
+                        showed_ui=0
+                    )
+
+                    # B. Update team's current league and flag
+                    team.league = league_obj
+                    team.has_league_changes = True
+                    team.save(update_fields=['league', 'has_league_changes'])
+
+                    # Update memory cache if pre-fetched map is active
+                    if teams_by_id is not None:
+                        teams_by_id[team.id] = team
+
+    @classmethod
+    def process_all_fixtures_league_changes(cls):
+        """
+        Iterates through all Fixture model instances to track league changes efficiently.
+        """
+        # 1. Fetch all teams into an in-memory dictionary lookup {team_id: team_obj}
+        teams_by_id = {team.id: team for team in Team.objects.select_related('league').all()}
+
+        # 2. Iterate through fixtures with select_related for league
+        fixtures = Fixture.objects.select_related('league').all().iterator(chunk_size=1000)
+
+        for fixture in fixtures:
+            cls.check_for_league_change(fixture, teams_by_id=teams_by_id)
 
     @staticmethod
     def download_image_to_field(url, field):

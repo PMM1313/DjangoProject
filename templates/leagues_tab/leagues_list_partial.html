@@ -65,6 +65,11 @@
         {% endif %}
     </td>
 
+    <!-- NEW REGULAR LEAGUE TOGGLE COLUMN -->
+    <td style="padding: 12px;" @click.stop>
+        {% include "leagues_tab/partials/regular_button.html" with league=league %}
+    </td>
+
     <td style="padding-left: 12px;">
         <div class="selection-cell">
             <input type="checkbox"
@@ -77,7 +82,7 @@
 </tr>
 {% empty %}
 <tr>
-    <td colspan="3" style="padding: 40px; text-align: center; color: #94a3b8;">
+    <td colspan="6" style="padding: 40px; text-align: center; color: #94a3b8;">
         No leagues exist in your database yet.
     </td>
 </tr>
@@ -85,7 +90,7 @@
 
 <tr x-show="search !== '' && $el.parentElement.querySelectorAll('.league-row:not([style*=\'display: none\'])').length === 0"
     x-transition.opacity>
-    <td colspan="3" style="padding: 40px; text-align: center; background: #fff;">
+    <td colspan="6" style="padding: 40px; text-align: center; background: #fff;">
         <div style="color: #94a3b8; font-size: 2rem; margin-bottom: 10px;">🔍</div>
         <div style="font-weight: 600; color: #475569;">
             No leagues found matching "<span x-text="search" style="color: #007bff;"></span>"

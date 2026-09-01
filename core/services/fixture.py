@@ -21,7 +21,7 @@ from .league import LeagueService
 from .team import TeamService
 from .stats import TrackingValues
 from .bet import calculate_required_bet
-from ..models import Team, Fixture, Country, League, Settings, ArchivedFixture, ExternalMapping
+from ..models import Team, Fixture, Country, League, Settings, ArchivedFixture, ExternalMapping, TeamLeagueHistory
 from .for_recover import use_plus_for_recovery
 
 
@@ -188,12 +188,12 @@ class FixtureService:
 
                 continue
 
-            print(f"step 1-4")
+            # print(f"step 1-4")
 
             league_obj = League.objects.filter(id=item["league"]["id"]).select_related('country').first()
             item["league"]["db_object"] = league_obj
 
-            print(f"step 1-5")
+            # print(f"step 1-5")
             # in case some of the 2 teams are tracked but league not in DB
             if not league_obj:
                 league_obj = LeagueService.update_or_create_league(item["league"])
@@ -201,7 +201,7 @@ class FixtureService:
                 print(f"League: {league_obj.name}, Country: {league_obj.country} added to DB")
                 # check for logo and download it if not
 
-            print(f"step 1-6")
+            # print(f"step 1-6")
             # check for league logo already processed/downloaded, if not download it
             if league_obj.id not in processed_league_logos:
                 if not league_obj.logo:
@@ -226,9 +226,9 @@ class FixtureService:
                     object_id=league_obj.id
                 )
 
-                print(f'League: {league_obj.name} Country: {country_obj.name} added to Mappings table !')
+                print(f'League: {league_obj.name}, Country: {country_obj.name} added to Mappings table !')
 
-            print(f"step 2-1")
+            # print(f"step 2-1")
 
             # League tracked → auto-import teams for new team that are not in DB, but league is tracked
             # and check if the round is regular season round, so not add teams that play in Promotion
@@ -254,10 +254,7 @@ class FixtureService:
 
                 # check for team logo
 
-
-
-
-            print(f"step 2-2")
+            # print(f"step 2-2")
             # 3. Check for existing fixture using IDs. can be updated here if new date, match status...
             if (h_id, a_id, league_id) in existing_fixtures:
                 Fixture.objects.filter(home_id=h_id, away_id=a_id).update(
@@ -269,7 +266,7 @@ class FixtureService:
 
                 continue  # fixture updated, continue to next fixture
 
-            print(f"step 2-3")
+            # print(f"step 2-3")
 
             # 1. Try to fetch the home and away team objects from your database
             home_team_internal = Team.objects.filter(id=item["teams"]["home"]["id"]).first()
@@ -282,33 +279,60 @@ class FixtureService:
             item["teams"]["home"]["name"] = home_team_internal.name if home_team_internal else h_name
             item["teams"]["away"]["name"] = away_team_internal.name if away_team_internal else a_name
 
-            # check for league change for each team
-            for team in [home_team_internal, away_team_internal]:
-                if team:
-                    # use league obj because i will need it if team has new league to set foreign key
-                    # this check mean that team in DB has different league id than in fixture, so i check for
-                    # regular season, that means the league is actual league, not a CUP
-                    if team.league_id != league_obj.id and item['league']['round'].startswith("Regular Season"):
-
-
-
-                        # league IDs are provided from API-source
-                        # i use the logic that the bigger placed league has id > than smaller league
-                        # check for promotion
-
-                        # check for relegation
-                        pass
-
+            # for team in [home_team_internal, away_team_internal]:
+            #     if team:
+            #         # use league obj because i will need it if team has new league to set foreign key
+            #         # this check mean that team in DB has different league id than in fixture, so i check for
+            #         # regular season, that means the league is actual league, not a CUP
+            #         # 2. Check all 3 conditions:
+            #         #    a) Team is in a different league
+            #         #    b) Target league is flagged as a regular league (not a cup/tournament)
+            #         #    c) The match is part of the regular season (case-insensitive check)
+            #         round_str = str(item.get('league', {}).get('round', ''))
+            #         is_different_league = team.league_id != league_obj.id
+            #         is_regular_league = league_obj.regular_league
+            #         is_regular_season_match = round_str.lower().startswith("regular season")
+            #
+            #         if is_different_league and is_regular_league and is_regular_season_match:
+            #             # Trigger your league transition / tracking logic here
+            #
+            #             # Store reference to old league object
+            #             old_league_obj = team.league  # Current league before changing
+            #
+            #             # Determine status using league id comparison less is bigger league
+            #             if league_obj.id < old_league_obj.id:
+            #                 movement_status = TeamLeagueHistory.StatusChoices.PROMOTION
+            #             else:
+            #                 movement_status = TeamLeagueHistory.StatusChoices.RELEGATION
+            #
+            #             with transaction.atomic():
+            #                 # A. Create the history record
+            #                 TeamLeagueHistory.objects.create(
+            #                     team=team,
+            #                     old_league=old_league_obj,
+            #                     new_league=league_obj,
+            #                     status=movement_status,
+            #                     showed_ui=0
+            #                 )
+            #
+            #                 # B. Update team's current league and flag
+            #                 team.league = league_obj
+            #                 team.has_league_changes = True
+            #                 team.save(update_fields=['league', 'has_league_changes'])
 
             # update or create the fixture
-            print(f"step 2-4")
+            # print(f"step 2-4")
             try:
+                # Writhing fixture to DB
                 # Wrap ONLY the individual DB write in an atomic transaction
                 with transaction.atomic():
-                    self.create_or_update_fixture_in_db(item, source_name="Api-Sports")
+                    fixture_obj = self.create_or_update_fixture_in_db(item, source_name="Api-Sports")
                     results['created'] += 1
 
-                    print(f"step 2-5")
+                    # check for league change for each team
+                    LeagueService.check_for_league_change(fixture_obj, home_team_internal, away_team_internal)
+
+                    # print(f"step 2-5")
                     existing_fixtures.add((h_id, a_id, league_id))
 
             except Exception as e:
@@ -322,7 +346,7 @@ class FixtureService:
                 })
                 continue  # Safe to continue! The broken transaction rolled back cleanly.
 
-            print(f"step 2-6")
+            # print(f"step 2-6")
             # check for team logos
             # At the bottom of the loop:
             for side in ['home', 'away']:
@@ -338,13 +362,13 @@ class FixtureService:
 
                     # Mark as processed so we don't query or download for this team again
                     processed_team_logos.add(team_id)
-            print(f"step 2-7")
+            # print(f"step 2-7")
             # The corrected, more accurate version:
             league_status = f"League: {league_obj} Used:{is_league_tracked}"
             status = f"{item['teams']['home']['name']}: {is_h_tracked}, " \
                      f"{item['teams']['away']['name']}: {is_a_tracked}"
 
-            print(f"step 2-8")
+            # print(f"step 2-8")
             print(f"Created: {item['teams']['home']['name']} vs {item['teams']['away']['name']} "
                   f"(Tracked: {status}) ({league_status})")
 
@@ -465,23 +489,53 @@ class FixtureService:
         """
         Fetches all fixtures grouped by Country and League,
         ordered by Country, League, and chronological Date/Time.
+        Used for gathering all fixtures for the Fixtures tab
         """
-        fixtures = (
+        fixtures = list(
             Fixture.objects
                 .select_related('country', 'league')
-                # This sorts by Country name, then League name,
-                # then by the full timestamp (Year -> Minute)
                 .order_by('country__name', 'league__name', 'date')
         )
 
-        # 1. Group using defaultdict
-        # Note: Because 'fixtures' is already sorted, the 'list' for each
-        # league will maintain that chronological order.
+        # 1. Gather all unique team IDs
+        team_ids = set()
+        for f in fixtures:
+            if f.home_id:
+                team_ids.add(f.home_id)
+            if f.away_id:
+                team_ids.add(f.away_id)
+
+        # 2. Get teams that have league changes flag = True
+        changed_team_ids = set(
+            Team.objects.filter(id__in=team_ids, has_league_changes=True)
+                .values_list('id', flat=True)
+        )
+
+        # 3. Fetch the most recent history entry for each of these teams
+        #    Iterating over ordered history entries ensures we keep only the latest per team.
+        team_history_map = {}
+        if changed_team_ids:
+            histories = (
+                TeamLeagueHistory.objects
+                    .filter(team_id__in=changed_team_ids)
+                    .select_related('old_league', 'new_league')
+                    .order_by('team_id', '-created_at')
+            )
+            for h in histories:
+                if h.team_id not in team_history_map:
+                    team_history_map[h.team_id] = h  # First entry encountered is the latest
+
+        # 4. Attach status and showed_ui data to fixture instances
+        for f in fixtures:
+            f.home_league_change = team_history_map.get(f.home_id)
+            f.away_league_change = team_history_map.get(f.away_id)
+
+        # 5. Group using defaultdict
         grouped = defaultdict(lambda: defaultdict(list))
         for fixture in fixtures:
             grouped[fixture.country][fixture.league].append(fixture)
 
-        # 2. Convert to plain dict for Django Template compatibility
+        # 6. Convert to plain dict for Django Template compatibility
         return {
             country: dict(leagues)
             for country, leagues in sorted(grouped.items(), key=lambda x: x[0].name)

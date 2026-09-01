@@ -1,0 +1,11 @@
+<button type="button"
+        hx-post="{% url 'toggle_regular_league' league.id %}"
+        hx-swap="outerHTML"
+        hx-target="this"
+        style="background: none; border: 1px solid #ddd; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+    {% if league.regular_league %}
+        <span style="color: #2fb344; font-weight: bold;">✓ Regular</span>
+    {% else %}
+        <span style="color: #888;">✗ Extra</span>
+    {% endif %}
+</button>

@@ -1,0 +1,29 @@
+
+/*##################### Badge for Promotion / Relegation for each team #########################*/
+.league-change-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px; /* Spaces out the icon and text automatically */
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #0284c7;
+    background-color: #e0f2fe;
+    border: 1px solid #bae6fd;
+    padding: 6px 6px;
+    border-radius: 4px;
+    margin: 0 4px;
+    vertical-align: middle;
+    cursor: help;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.league-change-badge:hover {
+    background-color: #bae6fd;
+    border-color: #7dd3fc;
+    color: #0369a1;
+}
+
+.league-change-badge i {
+    font-size: 0.68rem;
+}
+/*################################ END ###################################################*/
