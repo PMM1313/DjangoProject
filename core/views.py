@@ -182,22 +182,33 @@ def teams_list_partial(request):
     nd_bets = calculate_total_bets_based_on_no_draw_count()
 
     for team in teams:
-        team.simulated_bets = nd_bets.get(team.no_draw, Decimal("0.00"))
+        try:
+            team.simulated_bets = nd_bets.get(team.no_draw, Decimal("0.00"))
 
-        # Calculate percentage difference and comparison status
-        if team.simulated_bets > Decimal("0.00"):
-            diff_pct = ((team.all_bets - team.simulated_bets) / team.simulated_bets) * Decimal("100")
-            team.bet_diff_pct = abs(round(diff_pct, 1))  # e.g., 15.5
+            # Calculate percentage difference and comparison status
+            if team.simulated_bets > Decimal("0.00"):
+                diff_pct = ((team.all_bets - team.simulated_bets) / team.simulated_bets) * Decimal("100")
+                team.bet_diff_pct = abs(round(diff_pct, 1))
 
-            if team.all_bets > team.simulated_bets:
-                team.bet_status = 'higher'
-            elif team.all_bets < team.simulated_bets:
-                team.bet_status = 'lower'
+                if team.all_bets > team.simulated_bets:
+                    team.bet_status = 'higher'
+                elif team.all_bets < team.simulated_bets:
+                    team.bet_status = 'lower'
+                else:
+                    team.bet_status = 'equal'
             else:
+                team.bet_diff_pct = Decimal("0.0")
                 team.bet_status = 'equal'
-        else:
-            team.bet_diff_pct = Decimal("0.0")
-            team.bet_status = 'equal'
+
+        except Exception as e:
+            # Prints the exact team details and full stack trace to Gunicorn/Coolify stdout
+            print(f"\n[ERROR IN TEAMS_LIST_PARTIAL] Failed processing Team ID={team.id}, Name='{team.name}'")
+            print(
+                f"team.all_bets={repr(team.all_bets)}, team.simulated_bets={repr(getattr(team, 'simulated_bets', None))}")
+            traceback.print_exc()
+
+            # Re-raise the exception so Gunicorn triggers a standard 500 error page / HTMX error
+            raise e
 
     return render(request, 'partials/teams_table.html', {'teams': teams})
 
