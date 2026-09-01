@@ -93,7 +93,24 @@ class TeamAdmin(admin.ModelAdmin):
 
 @admin.register(Settings)
 class SettingsAdmin(admin.ModelAdmin):
-    list_display = ('id', 'use_plus_for_recover')
+    list_display = (
+        '__str__',
+        'min_bet',
+        'avg_coefficient',
+        'avg_perc_draw',
+        'rounds_for_earning_back',
+        'use_plus_for_recover'
+    )
+
+    # Prevent adding more than 1 Settings instance from the admin UI
+    def has_add_permission(self, request):
+        if Settings.objects.exists():
+            return False
+        return super().has_add_permission(request)
+
+    # Prevent deleting the single Settings instance
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(ArchivedFixture)
