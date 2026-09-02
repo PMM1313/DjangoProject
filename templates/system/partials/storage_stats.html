@@ -1,0 +1,46 @@
+<div id="storage-container"
+     class="storage-card"
+     hx-get="{% url 'system_storage' %}"
+     hx-trigger="every 30s"
+     hx-swap="outerHTML">
+
+    <!-- OS Badges -->
+    <div class="storage-header">
+        <div>
+            <div class="env-label">Environment</div>
+            <p class="env-title">{{ os_name }} ({{ root_path }})</p>
+        </div>
+        <span class="status-badge {% if used_pct > 85 %}status-critical{% elif used_pct > 70 %}status-warning{% else %}status-healthy{% endif %}">
+            {% if used_pct > 85 %}Storage Critical{% elif used_pct > 70 %}Storage High{% else %}Healthy{% endif %}
+        </span>
+    </div>
+
+    <!-- Storage Metrics Grid -->
+    <div class="metrics-grid">
+        <div class="metric-box total">
+            <p class="metric-label">Total Capacity</p>
+            <p class="metric-value">{{ total_gb }} GB</p>
+        </div>
+        <div class="metric-box used">
+            <p class="metric-label">Used Space</p>
+            <p class="metric-value">{{ used_gb }} GB</p>
+        </div>
+        <div class="metric-box free">
+            <p class="metric-label">Available Free</p>
+            <p class="metric-value">{{ free_gb }} GB</p>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div>
+        <div class="progress-header">
+            <span class="progress-title">Disk Usage</span>
+            <span class="progress-pct">{{ used_pct }}%</span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill {% if used_pct > 85 %}fill-critical{% elif used_pct > 70 %}fill-warning{% else %}fill-healthy{% endif %}"
+                 style="width: {{ used_pct }}%;">
+            </div>
+        </div>
+    </div>
+</div>

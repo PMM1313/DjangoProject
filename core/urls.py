@@ -62,6 +62,9 @@ urlpatterns = [
     # adding manual plus to for recover entry
     path('update_recovery_amount_manual_plus/', views.update_recovery_amount, name='update_recovery_amount_manual_plus'),
 
+    # system data views
+    path('system/storage/', views.system_storage_view, name='system_storage'),
+
     # extension data
     path('api/data/', views.receive_data, name='receive_data'),
 ]

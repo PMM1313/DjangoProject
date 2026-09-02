@@ -1,5 +1,6 @@
 import json
-
+import os
+import shutil
 import sys
 import traceback
 
@@ -226,7 +227,6 @@ def teams_list_partial(request):
 
         # 4. Re-raise 500 error
         raise e
-
 
 
 @login_required
@@ -919,25 +919,41 @@ def save_manual_mappings(request):
 @login_required
 def leagues_tab_page(request):
     """Loads the entire layout for the Leagues tab."""
-    leagues = League.objects.select_related('country').all().order_by('country__name', 'id')
-    active_count = leagues.filter(in_season=True).count()
-    used_count = leagues.filter(is_used=True).count()
+    try:
+        leagues = League.objects.select_related('country').all().order_by('country__name', 'id')
+        active_count = leagues.filter(in_season=True).count()
+        used_count = leagues.filter(is_used=True).count()
 
-    context = {
-        'leagues': leagues,
-        'active_count': active_count,
-        'used_count': used_count,
-    }
-    return render(request, 'leagues_tab/leagues_tab_page.html', context)
+        context = {
+            'leagues': leagues,
+            'active_count': active_count,
+            'used_count': used_count,
+        }
+        return render(request, 'leagues_tab/leagues_tab_page.html', context)
+    except Exception as e:
+        print(f'#' * 20)
+        print(f" Error in league stats page")
+        print(e)
+        traceback.print_exc()
+        print(f'#' * 20)
+        raise e
 
 
 @login_required
 def leagues_list_partial(request):
     """Returns ONLY the table rows. Clean and simple."""
-    # We ignore 'q' because Alpine.js handles filtering on the frontend
-    leagues = League.objects.select_related('country').all().order_by('country__name', 'id')
+    try:
+        # We ignore 'q' because Alpine.js handles filtering on the frontend
+        leagues = League.objects.select_related('country').all().order_by('country__name', 'id')
 
-    return render(request, 'leagues_tab/leagues_list_partial.html', {'leagues': leagues})
+        return render(request, 'leagues_tab/leagues_list_partial.html', {'leagues': leagues})
+    except Exception as e:
+        print(f'#' * 20)
+        print(f' Error in league list element on the league tab')
+        print(e)
+        traceback.print_exc()
+        print(f'#' * 20)
+        raise e
 
 
 @login_required
@@ -1254,3 +1270,45 @@ def receive_data(request):
             "status": "error",
             "message": f"Server Logic Error: {str(e)}"
         }, status=500)  # 500 is more accurate for code crashes
+
+
+####################### SYSTEM DATA VIEW #######################################
+@login_required
+def system_storage_view(request):
+    # 1. Check if Coolify mounted the host filesystem
+    if os.path.exists('/host_root'):
+        path = '/host_root'
+        os_label = 'Linux VPS (Host System)'
+    # 2. Local Windows environment
+    elif os.name == 'nt':
+        path = 'C:\\'
+        os_label = 'Windows (Local Dev)'
+    # 3. Fallback Linux container root
+    else:
+        path = '/'
+        os_label = 'Linux Container'
+
+    # Fetch disk stats
+    total, used, free = shutil.disk_usage(path)
+
+    gb = 1024 ** 3
+    total_gb = round(total / gb, 2)
+    used_gb = round(used / gb, 2)
+    free_gb = round(free / gb, 2)
+    used_pct = round((used / total) * 100, 1) if total > 0 else 0.0
+
+    context = {
+        'os_name': os_label,
+        'root_path': path,
+        'total_gb': total_gb,
+        'used_gb': used_gb,
+        'free_gb': free_gb,
+        'used_pct': used_pct,
+    }
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'system/partials/storage_stats.html', context)
+
+    return render(request, 'system/storage.html', context)
+
+####################### END OF SYSTEM DATA VIEW ################################

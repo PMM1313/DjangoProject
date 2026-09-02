@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .storage-page-wrapper {
+        max-width: 896px;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0;
+    }
+
+    .btn-refresh {
+        padding: 8px 16px;
+        background-color: #4f46e5;
+        color: #ffffff;
+        font-weight: 500;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+    .btn-refresh:hover {
+        background-color: #4338ca;
+    }
+
+    /* Styles for partial component */
+    .storage-card {
+        background-color: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        padding: 24px;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .storage-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #f3f4f6;
+        padding-bottom: 16px;
+        margin-bottom: 24px;
+    }
+
+    .env-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #9ca3af;
+        font-weight: 600;
+        margin-bottom: 2px;
+    }
+
+    .env-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 9999px;
+    }
+
+    .status-healthy { background-color: #d1fae5; color: #065f46; }
+    .status-warning { background-color: #fef3c7; color: #92400e; }
+    .status-critical { background-color: #fee2e2; color: #991b1b; }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+        text-align: center;
+    }
+
+    @media (min-width: 640px) {
+        .metrics-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    .metric-box {
+        padding: 16px;
+        border-radius: 8px;
+    }
+
+    .metric-box.total { background-color: #f9fafb; }
+    .metric-box.used { background-color: #eef2ff; }
+    .metric-box.free { background-color: #ecfdf5; }
+
+    .metric-label {
+        font-size: 14px;
+        font-weight: 500;
+        margin: 0;
+    }
+
+    .metric-box.total .metric-label { color: #6b7280; }
+    .metric-box.used .metric-label { color: #4f46e5; }
+    .metric-box.free .metric-label { color: #059669; }
+
+    .metric-value {
+        font-size: 24px;
+        font-weight: 800;
+        margin-top: 4px;
+        margin-bottom: 0;
+    }
+
+    .metric-box.total .metric-value { color: #111827; }
+    .metric-box.used .metric-value { color: #312e81; }
+    .metric-box.free .metric-value { color: #064e3b; }
+
+    .progress-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .progress-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .progress-pct {
+        font-size: 14px;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .progress-track {
+        width: 100%;
+        background-color: #e5e7eb;
+        border-radius: 9999px;
+        height: 16px;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        border-radius: 9999px;
+        transition: width 0.5s ease-in-out;
+    }
+
+    .fill-healthy { background-color: #4f46e5; }
+    .fill-warning { background-color: #f59e0b; }
+    .fill-critical { background-color: #ef4444; }
+</style>
+
+<div class="storage-page-wrapper">
+    <div class="page-header">
+        <h1 class="page-title">System Storage Overview</h1>
+        <button hx-get="{% url 'system_storage' %}" 
+                hx-target="#storage-container" 
+                hx-swap="outerHTML" 
+                class="btn-refresh">
+            Refresh Stats
+        </button>
+    </div>
+
+    <!-- Auto-refreshes every 30s or on manual trigger -->
+    <div id="storage-container" 
+         hx-get="{% url 'system_storage' %}" 
+         hx-trigger="every 30s" 
+         hx-swap="outerHTML">
+        {% include 'system/partials/storage_stats.html' %}
+    </div>
+</div>
+{% endblock %}
