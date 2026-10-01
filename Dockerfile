@@ -1,7 +1,7 @@
 # =========================================================
 # STAGE 1: Builder (Compiles wheels & dependencies)
 # =========================================================
-FROM python:3.8-slim AS builder
+FROM python:3.12.10 AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -26,7 +26,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 # =========================================================
 # STAGE 2: Final Runtime Image
 # =========================================================
-FROM python:3.8-slim AS runner
+FROM python:3.12.10 AS runner
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1

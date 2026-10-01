@@ -121,6 +121,9 @@ def dashboard(request):
     live_bets = Fixture.get_total_live_bets()
     teams_bets = Team.get_total_all_bets()
 
+    # for the stats table
+    stats_table = TrackingValues.get_stats_table_data()
+
     return render(request, 'dashboard.html', {
         'user_name': request.user.username,
         'first_name': request.user.first_name,
@@ -129,6 +132,7 @@ def dashboard(request):
         'stats': stats,
         'live_bets': live_bets,
         'teams_bets': teams_bets,
+        'stats_table': stats_table,  # for the stats table
     })
 
 

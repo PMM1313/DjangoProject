@@ -8,118 +8,149 @@
 
     <hr>
 
-    <div class='summary_and_nav' style="display: flex; flex-direction: column; gap: 20px;">
+    <div class='summary_and_nav' style="
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        border: 1px solid;
+        border-radius: 8px;
+        background: #eee">
 
-        <div style="border: 2px solid #007bff; padding-left: 20px; border-radius: 8px; background: #eee;
+        <div style="
+            {#border: 1px solid;#}
+            border-radius: 8px;
+            padding-left: 20px;
+            background: #eee;
             display: grid;
             /* This creates 3 equal columns, even if one is empty! */
-            grid-template-columns: 1fr 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 10px;">
+
             <div>
                 <h3>Database Summary</h3>
                 <p>Total Teams in Postgres: <strong>{{ total_count }}</strong></p>
             </div>
+
             <div>
                 <h3>Fixtures Summary</h3>
                 <p>Test</p>
             </div>
+
             <div>
                 <h3>Current Bets</h3>
                 <div>Team`s Bets: {{ teams_bets }}</div>
                 <div>Live Bets: {{ live_bets }}</div>
                 <div>Available Plus: {{ stats }}</div>
             </div>
-            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; padding: 20px; border-radius: 8px; align-items: center;">
-                <h3 style="grid-column: 1 / span 3; margin-bottom: 5px; margin-top: 0px;">Stats Summary</h3>
-
-                <div style="font-weight: bold; color: #666;">Category</div>
-                <div style="font-weight: bold; color: #666;">Weekly</div>
-                <div style="font-weight: bold; color: #666;">Monthly</div>
-
-                <hr style="grid-column: 1 / span 3; width: 100%; border: 0; border-top: 1px solid #2c3e50; margin: 0px">
-
-                <div>Placed Bets</div>  <div>45</div>  <div>180</div>
-                <div>Win Rate</div>   <div style="color: green;">70%</div> <div style="color: green;">68%</div>
-                <div>Avg Odds</div>   <div>1.90</div> <div>1.85</div>
-                <div>Profit</div>     <div style="font-weight:bold;">+$200</div> <div style="font-weight:bold;">+$850</div>
-                <div>Yield</div>      <div>+5.2%</div> <div>+4.8%</div>
-
-            </div>
-{#            <div style="display: grid;#}
-{#                /* This creates 3 equal columns, even if one is empty! */#}
-{#                grid-template-columns: 1fr 1fr 1fr;">#}
-{#                <h3 style="grid-column: 1 / span 3; margin-bottom: 10px;">#}
-{#                    Stats Summary#}
-{#                </h3>#}
-{#                <div>#}
-{#                    <p>Weekly stats</p>#}
-{#                </div>#}
-{#                <div>#}
-{#                    <p>Monthly stats</p>#}
-{#                </div>#}
-{#            </div>#}
         </div>
 
-        <div class="tabs-nav">
+        <!-- New Table Section Below -->
+        <div style="
+            {#border: 1px solid;#}
+            border-radius: 8px;
+            padding: 20px;
+            background: #eee;">
 
-            <button class="tab-btn active" onclick="switchTab(this, 'fixtures-tab')">
-                Fixtures
-            </button>
-
-            <button class="tab-btn"
-                    onclick="switchTab(this, 'teams-tab')"
-                    data-hx-get="{% url 'teams_list_partial' %}"
-                    data-hx-target="#teams-table-container"
-                    data-hx-trigger="click">
-                Teams
-            </button>
-
-            <button class="tab-btn"
-                    onclick="switchTab(this, 'distribution-tab')"
-                    data-hx-get="{% url 'distribution_table' %}"
-                    data-hx-target="#distribution-table-container"
-                    data-hx-trigger="click">
-                Distribution
-            </button>
-
-            <button class="tab-btn"
-                    onclick="switchTab(this, 'leagues-tab')"
-                    data-hx-get="{% url 'leagues_tab_page' %}"
-                    data-hx-target="#leagues-tab-content"
-                    data-hx-trigger="click">
-                Leagues
-            </button>
-
-            <button class="tab-btn">
-                Countries
-            </button>
-
-            <button class="tab-btn">
-                Archive
-            </button>
-
-            <button class="tab-btn">
-                Fixtures stats
-            </button>
-
-            <button class="tab-btn">
-                Stats
-            </button>
-
-            <button class="tab-btn"
-                    onclick="switchTab(this, 'imports-tab')"
-                    data-hx-get="{% url 'imports_tab_page' %}"
-                    data-hx-target="#imports-tab-content"
-                    data-hx-trigger="click">
-                Imports
-            </button>
-
-            <button class="tab-btn">
-                Settings
-            </button>
-
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 8px;">Date</th>
+                        <th style="padding: 8px;">Bets in Progression</th>
+                        <th style="padding: 8px;">Fixtures Played</th>
+                        <th style="padding: 8px;">Draw</th>
+                        <th style="padding: 8px;">Draw Percent</th>
+                        <th style="padding: 8px;">Bets</th>
+                        <th style="padding: 8px;">Profit</th>
+                        <th style="padding: 8px;">Profit Percent</th>
+                        <th style="padding: 8px;">Plus Earned</th>
+                        <th style="padding: 8px;">Plus for Recover</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in stats_table %}
+                    <tr style="border-bottom: 1px solid #ddd; background-color: #fff;">
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.date }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.bets_in_progression }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.fixtures_played }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.draw }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.draw_percent }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.bets }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.profit }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.profit_percent }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.plus_earned }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.plus_for_recover }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr style="background-color: #fff;">
+                        <td colspan="10" style="padding: 10px; text-align: center;">No stats recorded.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+
     </div>
+
+    <div class="tabs-nav">
+
+        <button class="tab-btn active" onclick="switchTab(this, 'fixtures-tab')">
+            Fixtures
+        </button>
+
+        <button class="tab-btn"
+                onclick="switchTab(this, 'teams-tab')"
+                data-hx-get="{% url 'teams_list_partial' %}"
+                data-hx-target="#teams-table-container"
+                data-hx-trigger="click">
+            Teams
+        </button>
+
+        <button class="tab-btn"
+                onclick="switchTab(this, 'distribution-tab')"
+                data-hx-get="{% url 'distribution_table' %}"
+                data-hx-target="#distribution-table-container"
+                data-hx-trigger="click">
+            Distribution
+        </button>
+
+        <button class="tab-btn"
+                onclick="switchTab(this, 'leagues-tab')"
+                data-hx-get="{% url 'leagues_tab_page' %}"
+                data-hx-target="#leagues-tab-content"
+                data-hx-trigger="click">
+            Leagues
+        </button>
+
+        <button class="tab-btn">
+            Countries
+        </button>
+
+        <button class="tab-btn">
+            Archive
+        </button>
+
+        <button class="tab-btn">
+            Fixtures stats
+        </button>
+
+        <button class="tab-btn">
+            Stats
+        </button>
+
+        <button class="tab-btn"
+                onclick="switchTab(this, 'imports-tab')"
+                data-hx-get="{% url 'imports_tab_page' %}"
+                data-hx-target="#imports-tab-content"
+                data-hx-trigger="click">
+            Imports
+        </button>
+
+        <button class="tab-btn">
+            Settings
+        </button>
+
+    </div>
+
 
     <div id="fixtures-tab" class="tab-content" style="border: 1px solid #ccc; padding: 20px; border-radius: 8px; flex: 2;">
 

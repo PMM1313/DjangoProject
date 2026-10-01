@@ -589,7 +589,7 @@ class FixtureService:
                 setattr(fixture, f"{side}_team_plus", plus)
 
             # 6. Saving total bets to DB
-            TrackingValues.add_entry(total_bets, "BET")
+            TrackingValues.add_entry(total_bets, "BET", entry_date=fixture.date)
 
             # 3. Finalize Fixture
             fixture.is_played = True
@@ -609,6 +609,10 @@ class FixtureService:
 
             if fixture.is_draw:
 
+                # check if use_plus_for_recover is True and use it for recover
+                settings = Settings.load()
+                use_plus_for_recover = settings.use_plus_for_recover
+
                 Team.objects.filter(id__in=[home_team_id, away_team_id]).update(
                     all_bets=Decimal('0.00'),
                     extra_bets=Decimal('0.00'),
@@ -618,17 +622,19 @@ class FixtureService:
 
                 # 3. TRACKING: Record the success for the day
                 # Sum them here to minimize DB hits
-                TrackingValues.add_entry(fixture.home_team_profit + fixture.away_team_profit, "PROFIT")
+                profit = fixture.home_team_profit + fixture.away_team_profit
+                all_plus = fixture.home_team_plus + fixture.away_team_plus
 
-                # check if use_plus_for_recover is True and use it for recover
-                settings = Settings.load()
-                use_plus = settings.use_plus_for_recover
+                TrackingValues.add_entry(profit, "PROFIT", entry_date=fixture.date)
 
-                if use_plus and fixture.home_team_plus + fixture.away_team_plus > Decimal('0'):
-                    plus_used = use_plus_for_recovery(fixture)
+                if all_plus > Decimal('0.00'):
 
-                if fixture.home_team_plus + fixture.away_team_plus > Decimal('0'):
-                    TrackingValues.add_entry(fixture.home_team_plus + fixture.away_team_plus, "PLUS_EARNED")
+                    if use_plus_for_recover:
+                        plus_used = use_plus_for_recovery(fixture)
+                        all_plus = fixture.home_team_plus + fixture.away_team_plus
+
+                    # this has to be last, so if plus is used for recovery to be writen in DB
+                    TrackingValues.add_entry(all_plus, "PLUS_EARNED", entry_date=fixture.date)
 
             else:
                 # 4. ATOMIC INCREMENT: Add 1 to the current DB value

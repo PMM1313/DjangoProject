@@ -314,11 +314,16 @@ class TrackingValue(models.Model):
         ('BET', 'Bet'),
         ('PLUS_EARNED', 'Plus earned'),
         ('PLUS_USED', 'Plus used'),
+        ('ALL_BETS_SNAPSHOT_START', 'All bets start of week'), # all bets for all teams start of week "Monday"
+        ('ALL_BETS_SNAPSHOT_END', 'All bets end of week'), # all bets for all teams end of week "Sunday"
     ]
 
     date = models.DateField(db_index=True)
-    category = models.CharField(max_length=11, choices=TYPE_CHOICES, db_index=True)
+    category = models.CharField(max_length=30, choices=TYPE_CHOICES, db_index=True)
     amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    all_bets_snapshot_start = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    all_bets_snapshot_end = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
 
     class Meta:
         # This ensures we only have ONE row per date PER category

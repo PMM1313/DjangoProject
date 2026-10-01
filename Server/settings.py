@@ -11,9 +11,12 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
 from pathlib import Path
+
+import dj_database_url
 from dotenv import load_dotenv
 from decimal import Decimal
 from urllib.parse import urlparse
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -182,27 +185,39 @@ WSGI_APPLICATION = 'Server.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.getenv('DB_NAME', 'postgres'),
+#         'USER': os.getenv('DB_USER', 'server_user'),
+#         'PASSWORD': os.getenv('DB_PASSWORD'),  # Pulled from .env
+#         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+#         'PORT': os.getenv('DB_PORT', '5432'),
+#     }
+# }
+# # If running in production container via Coolify, overwrite using the database string URL
+# if os.environ.get('DATABASE_URL'):
+#     url = urlparse(os.environ.get('DATABASE_URL'))
+#     DATABASES['default'] = {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': url.path[1:],
+#         'USER': url.username,
+#         'PASSWORD': url.password,
+#         'HOST': url.hostname,
+#         'PORT': url.port or 5432,
+#     }
+db_user = os.getenv('DB_USER', 'server_user')
+db_pass = os.getenv('DB_PASSWORD', '')
+db_host = os.getenv('DB_HOST', '127.0.0.1')
+db_port = os.getenv('DB_PORT', '5432')
+db_name = os.getenv('DB_NAME', 'postgres')
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'postgres'),
-        'USER': os.getenv('DB_USER', 'server_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),  # Pulled from .env
-        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-    }
+    'default': dj_database_url.config(
+        default=f"postgres://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}",
+        conn_max_age=600,
+    )
 }
-# If running in production container via Coolify, overwrite using the database string URL
-if os.environ.get('DATABASE_URL'):
-    url = urlparse(os.environ.get('DATABASE_URL'))
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': url.path[1:],
-        'USER': url.username,
-        'PASSWORD': url.password,
-        'HOST': url.hostname,
-        'PORT': url.port or 5432,
-    }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -268,7 +283,19 @@ LOGIN_REDIRECT_URL = 'dashboard'
 # Where to send users after they log out
 LOGOUT_REDIRECT_URL = 'login'
 
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://127.0.0.1:6379/0')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
+# # celery setup settings
+# CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
+# CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://127.0.0.1:6379/0')
+# CELERY_ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://django-redis:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://django-redis:6379/0')
+CELERY_TIMEZONE = 'Europe/Sofia'  # Set to match your local timezone requirement
+
+CELERY_BEAT_SCHEDULE = {
+    'calculate-bets-every-monday': {
+        'task': 'core.tasks.calculate_weekly_bets',
+        'schedule': crontab(hour=0, minute=1, day_of_week='monday'),
+    },
+}
