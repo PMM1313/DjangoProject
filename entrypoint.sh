@@ -15,7 +15,7 @@ case "$COMMAND" in
     python manage.py collectstatic --noinput
 
     echo "Starting production WSGI server via Gunicorn..."
-    exec gunicorn Server.wsgi:application \
+    exec python -m gunicorn Server.wsgi:application \
         --bind 0.0.0.0:8000 \
         --workers 2 \
         --threads 4 \
