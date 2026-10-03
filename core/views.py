@@ -110,11 +110,6 @@ class TeamDetailView(LoginRequiredMixin, APIView):
 
 @login_required
 def dashboard(request):
-    # Fetch the raw data (Model)
-    queryset = ForRecover.objects.all().order_by('date_added_to_recover')
-
-    # Format the data (Service)
-    initial_data = format_recovery_data(queryset)
 
     # for the stats
     stats = TrackingValue.get_total_available_plus()
@@ -128,25 +123,25 @@ def dashboard(request):
         'user_name': request.user.username,
         'first_name': request.user.first_name,
         'total_count': Team.objects.count(),
-        'initial_recoveries': initial_data,
         'stats': stats,
         'live_bets': live_bets,
         'teams_bets': teams_bets,
-        'stats_table': stats_table,  # for the stats table
+        'stats_table': stats_table,  # for the weeks stats table
     })
 
 
 @login_required
 def get_recovery_data(request):
     """The AJAX endpoint for your Alpine.js checkbox"""
-    show_all = request.GET.get('show_all') == 'true'
+    show_all = request.GET.get('show_all') == 'false'
 
     if show_all:
-        queryset = ForRecover.objects.all()
+        queryset = ForRecover.objects.filter(is_recovered=False)
     else:
         queryset = ForRecover.objects.filter(is_recovered=False)
 
     data = format_recovery_data(queryset.order_by('date_added_to_recover'))
+    print(f'AJAX method: get_recovery_data: {data}')
     return JsonResponse(data, safe=False)
 
 
@@ -544,8 +539,9 @@ def teams_distribution_view(request):
 
 @login_required
 @require_GET  # <--- This handles the hx-trigger="load"
+# TODO use for_recover.get_recovery_data to get the data
 def get_distribution_partial(request):
-    recoveries = ForRecover.objects.all().order_by('-date_added_to_recover')
+    recoveries = ForRecover.objects.filter(is_recovered=False).order_by('-date_added_to_recover')
     return render(request, "partials/_distribution_table.html", {
         "initial_recoveries": recoveries
     })

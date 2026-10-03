@@ -321,9 +321,6 @@ class TrackingValue(models.Model):
     date = models.DateField(db_index=True)
     category = models.CharField(max_length=30, choices=TYPE_CHOICES, db_index=True)
     amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    all_bets_snapshot_start = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    all_bets_snapshot_end = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-
 
     class Meta:
         # This ensures we only have ONE row per date PER category

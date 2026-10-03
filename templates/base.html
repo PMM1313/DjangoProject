@@ -112,10 +112,10 @@
 
 
 
-  <body data-hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <body data-hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 
     <div id="toast-container"></div>
-    
+
     <nav style="padding: 10px 20px; background: #eee; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc;">
 
         <div>
@@ -130,20 +130,21 @@
 
         </div>
 
-      <div style="display: flex; align-items: center; gap: 15px;">
-        {% if user.is_authenticated %}
-          <span style="font-size: 0.9em; color: #555;">Hi, <strong>{{ user.username }}</strong></span>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            {% if user.is_authenticated %}
+                <span style="font-size: 0.9em; color: #555;">Hi, <strong>{{ user.username }}</strong></span>
 
-          <form action="{% url 'logout' %}" method="post" style="display: inline; margin: 0;">
-            {% csrf_token %}
-            <button type="submit" style="background: #f44336; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-              Log Out
-            </button>
-          </form>
-        {% else %}
-          <a href="{% url 'login' %}" style="text-decoration: none; color: #333;">Log In</a>
-        {% endif %}
-      </div>
+                <form action="{% url 'logout' %}" method="post" style="display: inline; margin: 0;">
+                {% csrf_token %}
+                <button type="submit" style="background: #f44336; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                  Log Out
+                </button>
+                </form>
+                {% else %}
+                <a href="{% url 'login' %}" style="text-decoration: none; color: #333;">Log In</a>
+                {% endif %}
+        </div>
+
     </nav>
 
     <main>
@@ -162,5 +163,5 @@
 
     {% include "partials/_loader.html" %}
     {% block extra_js %}{% endblock %}
-  </body>
+    </body>
 </html>

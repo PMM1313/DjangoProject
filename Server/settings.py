@@ -292,6 +292,7 @@ LOGOUT_REDIRECT_URL = 'login'
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://django-redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://django-redis:6379/0')
 CELERY_TIMEZONE = 'Europe/Sofia'  # Set to match your local timezone requirement
+CELERY_ENABLE_UTC = False # Ensures Beat triggers strictly on Sofia local time
 
 CELERY_BEAT_SCHEDULE = {
     'calculate-bets-every-monday': {

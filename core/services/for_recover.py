@@ -92,15 +92,21 @@ def use_plus_for_recovery(fixture):
 
 
 def get_recovery_data():
-    queryset = ForRecover.objects.all().order_by('date_added_to_recover')
+    # Filter unrecovered records directly in PostgreSQL
+    queryset = ForRecover.objects.filter(is_recovered=False).order_by(
+        'date_added_to_recover'
+    )
 
     # Format the data (Service)
     initial_data = format_recovery_data(queryset)
 
+    print(initial_data)
     return initial_data
 
 
 def format_recovery_data(queryset):
+    # Filter directly in SQL before evaluating the QuerySet
+
     return [
         {
             "id": r.id,

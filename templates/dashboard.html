@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %} {% block content %}
-<div style="padding: 20px; font-family: sans-serif;" xmlns:hx-on="http://www.w3.org/1999/xhtml"
+
+    <div style="padding: 20px; font-family: sans-serif;" xmlns:hx-on="http://www.w3.org/1999/xhtml"
      xmlns:x-transition="http://www.w3.org/1999/xhtml" xmlns:>
 
     <h1>Welcome, {{ first_name }} !</h1>
@@ -51,26 +52,30 @@
             padding: 20px;
             background: #eee;">
 
-            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <table style="width: 100%; border-collapse: collapse; text-align: center;">
                 <thead>
-                    <tr style="border-bottom: 2px solid #ccc;">
+                    <tr style="border-bottom: 2px solid #ccc; ">
                         <th style="padding: 8px;">Date</th>
-                        <th style="padding: 8px;">Bets in Progression</th>
+                        <th style="padding: 8px;">All Bets Start Of Week</th>
+                        <th style="padding: 8px;">All Bets Current</th>
+                        <th style="padding: 8px;">All Bets End Of Week</th>
                         <th style="padding: 8px;">Fixtures Played</th>
                         <th style="padding: 8px;">Draw</th>
                         <th style="padding: 8px;">Draw Percent</th>
-                        <th style="padding: 8px;">Bets</th>
+                        <th style="padding: 8px;">Bets Made</th>
                         <th style="padding: 8px;">Profit</th>
                         <th style="padding: 8px;">Profit Percent</th>
                         <th style="padding: 8px;">Plus Earned</th>
-                        <th style="padding: 8px;">Plus for Recover</th>
+                        <th style="padding: 8px;">Plus Used For Recover</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in stats_table %}
                     <tr style="border-bottom: 1px solid #ddd; background-color: #fff;">
                         <td style="padding: 10px; white-space: nowrap;">{{ row.date }}</td>
-                        <td style="padding: 10px; white-space: nowrap;">{{ row.bets_in_progression }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.all_bets_start_of_week }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.all_bets_current }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.all_bets_end_of_week }}</td>
                         <td style="padding: 10px; white-space: nowrap;">{{ row.fixtures_played }}</td>
                         <td style="padding: 10px; white-space: nowrap;">{{ row.draw }}</td>
                         <td style="padding: 10px; white-space: nowrap;">{{ row.draw_percent }}</td>
