@@ -302,7 +302,6 @@ CELERY_TASK_ACKS_LATE = True                      # task isn't lost if the worke
 CELERY_BEAT_SCHEDULE = {
     'calculate-bets-every-monday': {
         'task': 'core.tasks.calculate_weekly_bets',
-        'schedule': crontab(minute='*'),  # TEMPORARY TEST: every minute
+        'schedule': crontab(hour=0, minute=1, day_of_week='monday'),  # Monday at 00:01 using localtime Europe/Sofia
     },
 }
-# crontab(hour=0, minute=1, day_of_week='monday')
