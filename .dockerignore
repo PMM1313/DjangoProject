@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+.env.*
+media/
+staticfiles/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+node_modules/
+.idea/
+.vscode/
+*.sqlite3
+celerybeat-schedule*
