@@ -24,9 +24,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 
 # =========================================================
-# STAGE 2: Final Runtime Image (Pre-baked Playwright & Browsers)
+# STAGE 2: Slim runtime (web, celery worker, celery beat)
 # =========================================================
-FROM mcr.microsoft.com/playwright/python:v1.50.0-noble AS runner
+FROM python:3.12.10-slim AS runner
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
