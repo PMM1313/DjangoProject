@@ -27,12 +27,12 @@ case "$COMMAND" in
 
   worker)
     echo "Starting Celery Worker..."
-    exec celery -A Server worker --loglevel=info
+    exec python -m celery -A Server worker --loglevel=info
     ;;
 
   beat)
     echo "Starting Celery Beat..."
-    exec celery -A Server beat --loglevel=info
+    exec python -m celery -A Server beat --loglevel=info
     ;;
 
   *)
