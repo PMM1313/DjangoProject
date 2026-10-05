@@ -292,11 +292,17 @@ LOGOUT_REDIRECT_URL = 'login'
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://django-redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://django-redis:6379/0')
 CELERY_TIMEZONE = 'Europe/Sofia'  # Set to match your local timezone requirement
-CELERY_ENABLE_UTC = False # Ensures Beat triggers strictly on Sofia local time
+CELERY_ENABLE_UTC = True # Ensures Beat triggers strictly on Sofia local time
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True  # containers may start before Redis
+CELERY_RESULT_EXPIRES = 3600                      # don't keep results in Redis for a day
+CELERY_TASK_TIME_LIMIT = 300                      # hard kill after 5 min
+CELERY_TASK_SOFT_TIME_LIMIT = 240
+CELERY_TASK_ACKS_LATE = True                      # task isn't lost if the worker dies mid-run
 
 CELERY_BEAT_SCHEDULE = {
     'calculate-bets-every-monday': {
         'task': 'core.tasks.calculate_weekly_bets',
-        'schedule': crontab(hour=0, minute=1, day_of_week='monday'),
+        'schedule': crontab(minute='*'),  # TEMPORARY TEST: every minute
     },
 }
+# crontab(hour=0, minute=1, day_of_week='monday')
