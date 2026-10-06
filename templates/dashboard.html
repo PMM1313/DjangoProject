@@ -24,24 +24,33 @@
             background: #eee;
             display: grid;
             /* This creates 3 equal columns, even if one is empty! */
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
             gap: 10px;">
 
             <div>
                 <h3>Database Summary</h3>
-                <p>Total Teams in Postgres: <strong>{{ total_count }}</strong></p>
+                <p>Teams: <strong>{{ team_count }}</strong></p>
+                <p>Leagues: <strong>{{ league_count }}</strong></p>
             </div>
 
             <div>
-                <h3>Fixtures Summary</h3>
-                <p>Test</p>
+                <h3>All Time Fixtures Summary</h3>
+                <p>Played: {{ fixture_stats.fixtures_played }}</p>
+                <p>Draws: {{ fixture_stats.fixtures_draw }}</p>
+                <p>Draws: {{ fixture_stats.draw_percent }}</p>
             </div>
 
             <div>
-                <h3>Current Bets</h3>
+                <h3>All Time Bets Stats</h3>
+                <p>Total Bets: {{ fixture_stats.total_bets }}</p>
+                <p>Total Profit: {{ fixture_stats.total_profit }} </p>
+                <p>Percentage: {{ fixture_stats.profit_percent }}</p>
+            </div>
+            <div>
+                <h3>Current Stats</h3>
                 <div>Team`s Bets: {{ teams_bets }}</div>
                 <div>Live Bets: {{ live_bets }}</div>
-                <div>Available Plus: {{ stats }}</div>
+                <div>Available Plus: {{ available_plus }}</div>
             </div>
         </div>
 

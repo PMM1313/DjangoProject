@@ -5,6 +5,7 @@ import sys
 import traceback
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from _decimal import InvalidOperation
 from collections import defaultdict
@@ -16,7 +17,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import OuterRef, Exists, Q, Subquery, Max
+from django.db.models import OuterRef, Exists, Q, Subquery, Max, Count, Sum, F, DecimalField
 from django.http import HttpResponseBadRequest, JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.exceptions import ObjectDoesNotExist
@@ -30,7 +31,7 @@ from rest_framework import status, generics
 
 from .forms import ManualFixtureForm, SettleFixtureForm
 from .models import Team, Fixture, ForRecover, League, Country, TrackingValue, RecoverFixture, PendingImport, \
-    ExternalMapping
+    ExternalMapping, ArchivedFixture
 from .serializers import TeamSerializer
 
 # -------------------------------
@@ -112,18 +113,62 @@ class TeamDetailView(LoginRequiredMixin, APIView):
 def dashboard(request):
 
     # for the stats
-    stats = TrackingValue.get_total_available_plus()
+    available_plus = TrackingValue.get_total_available_plus()
     live_bets = Fixture.get_total_live_bets()
     teams_bets = Team.get_total_all_bets()
 
     # for the stats table
     stats_table = TrackingValues.get_stats_table_data()
 
+    stats = ArchivedFixture.objects.filter(is_played=True).aggregate(
+        played=Count('id'),
+        draws=Count('id', filter=Q(is_draw=True)),
+        total_bets=Coalesce(
+            Sum(F('home_team_bet') + F('away_team_bet')),
+            Decimal('0.00'),
+            output_field=DecimalField(),
+        ),
+        total_profit=Coalesce(
+            Sum(F('home_team_profit') + F('away_team_profit')),
+            Decimal('0.00'),
+            output_field=DecimalField(),
+        ),
+    )
+
+    played = stats['played']
+    draws = stats['draws']
+    total_bets = stats['total_bets']
+    total_profit = stats['total_profit']
+
+    # Safe division
+    draw_percent = (
+        round(Decimal(draws) / Decimal(played) * Decimal('100'), 2)
+        if played > 0
+        else Decimal('0.00')
+    )
+
+    profit_percent = (
+        round((total_profit / total_bets) * Decimal('100'), 2)
+        if total_bets > 0
+        else Decimal('0.00')
+    )
+
+    fixture_stats = {
+        'fixtures_played': played,
+        'fixtures_draw': draws,
+        'draw_percent': f"{draw_percent}%",
+        'total_bets': total_bets,
+        'total_profit': total_profit,
+        'profit_percent': f"{profit_percent}%",
+    }
+
     return render(request, 'dashboard.html', {
         'user_name': request.user.username,
         'first_name': request.user.first_name,
-        'total_count': Team.objects.count(),
-        'stats': stats,
+        'team_count': Team.objects.count(),
+        'league_count': League.objects.filter(is_used=True).count(),
+        'fixture_stats': fixture_stats,
+        'available_plus': available_plus,
         'live_bets': live_bets,
         'teams_bets': teams_bets,
         'stats_table': stats_table,  # for the weeks stats table
