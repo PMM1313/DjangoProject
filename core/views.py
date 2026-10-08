@@ -129,7 +129,10 @@ def dashboard(request):
             output_field=DecimalField(),
         ),
         total_profit=Coalesce(
-            Sum(F('home_team_profit') + F('away_team_profit')),
+            Sum(
+                F('home_team_profit') + F('away_team_profit'),
+                filter=Q(is_draw=True),
+            ),
             Decimal('0.00'),
             output_field=DecimalField(),
         ),

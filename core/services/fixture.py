@@ -21,7 +21,8 @@ from .league import LeagueService
 from .team import TeamService
 from .stats import TrackingValues
 from .bet import calculate_required_bet
-from ..models import Team, Fixture, Country, League, Settings, ArchivedFixture, ExternalMapping, TeamLeagueHistory
+from ..models import Team, Fixture, Country, League, Settings, ArchivedFixture, ExternalMapping, TeamLeagueHistory, \
+    TrackingValue
 from .for_recover import use_plus_for_recovery
 
 
@@ -561,7 +562,7 @@ class FixtureService:
 
                 if team:
                     all_bets = Decimal(str(team.all_bets or 0))
-                    today = timezone.now().date()
+                    today = timezone.localdate()
 
                     # 1. Calculate the rounded-up bet
                     bet = calculate_required_bet(all_bets, coef)
@@ -602,12 +603,12 @@ class FixtureService:
     def resolve_fixture(fixture_id):
         try:
             # 1. LOCK the fixture row so no other process can resolve it simultaneously
-            fixture = Fixture.objects.select_for_update().get(fixture_id=fixture_id)
+            fixture: Fixture = Fixture.objects.select_for_update().get(fixture_id=fixture_id)
 
             home_team_id = fixture.home_id
             away_team_id = fixture.away_id
 
-            if fixture.is_draw:
+            if fixture.is_draw and fixture.is_played and fixture.status == 'Match Finished':
 
                 # check if use_plus_for_recover is True and use it for recover
                 settings = Settings.load()
@@ -617,7 +618,7 @@ class FixtureService:
                     all_bets=Decimal('0.00'),
                     extra_bets=Decimal('0.00'),
                     no_draw=0,
-                    is_played=False  # или True, зависи от твоята логика за статус
+                    is_played=False
                 )
 
                 # 3. TRACKING: Record the success for the day
@@ -634,7 +635,48 @@ class FixtureService:
                         all_plus = fixture.home_team_plus + fixture.away_team_plus
 
                     # this has to be last, so if plus is used for recovery to be writen in DB
+                    # if all plus is used by use_plus_for_recovery(fixture), all_plus will be Decimal 0
                     TrackingValues.add_entry(all_plus, "PLUS_EARNED", entry_date=fixture.date)
+
+                # Checking the need to adjust past sunday and next monday week snapshots
+                # if fixture is not resolving in its week
+                # Compute Bulgarian local calendar dates
+                local_fixture_date = timezone.localtime(fixture.date).date()
+                current_local_date = timezone.localtime(timezone.now()).date()
+
+                # Calculate week-ending Sundays (weekday 6)
+                fixture_sunday = local_fixture_date + timedelta(days=(6 - local_fixture_date.weekday()))
+                current_sunday = current_local_date + timedelta(days=(6 - current_local_date.weekday()))
+
+                is_past_week = fixture_sunday < current_sunday
+
+                if is_past_week:
+                    # Bets contributed by this fixture
+                    home_bet = fixture.home_team_bet or Decimal('0.00')
+                    away_bet = fixture.away_team_bet or Decimal('0.00')
+                    total_fixture_bet = home_bet + away_bet
+
+                    next_monday = fixture_sunday + timedelta(days=1)
+
+                    # 1. Deduct from target Sunday (ALL_BETS_SNAPSHOT_END)
+                    sunday_snapshot, _ = TrackingValue.objects.get_or_create(
+                        date=fixture_sunday,
+                        category='ALL_BETS_SNAPSHOT_END',
+                        defaults={'amount': Decimal('0.00')}
+                    )
+                    TrackingValue.objects.filter(pk=sunday_snapshot.pk).update(
+                        amount=F('amount') - total_fixture_bet
+                    )
+
+                    # 2. Deduct from following Monday (ALL_BETS_SNAPSHOT_START)
+                    monday_snapshot, _ = TrackingValue.objects.get_or_create(
+                        date=next_monday,
+                        category='ALL_BETS_SNAPSHOT_START',
+                        defaults={'amount': Decimal('0.00')}
+                    )
+                    TrackingValue.objects.filter(pk=monday_snapshot.pk).update(
+                        amount=F('amount') - total_fixture_bet
+                    )
 
             else:
                 # 4. ATOMIC INCREMENT: Add 1 to the current DB value

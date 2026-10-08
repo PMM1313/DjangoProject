@@ -21,30 +21,21 @@ class TrackingValues:
 
     @staticmethod
     def add_entry(amount, category, entry_date=None):
-        """
-        Updates the daily total for a category if it exists,
-        otherwise creates a new one.
-        """
-        # Default to today if no specific date is provided
         if entry_date is None:
-            entry_date = date.today()
+            entry_date = timezone.localdate()
         elif isinstance(entry_date, datetime):
-            # Convert datetime to date automatically
-            entry_date = entry_date.date()
+            # Convert UTC datetime to local time (Europe/Sofia) before extracting .date()
+            entry_date = timezone.localtime(entry_date).date()
 
-        # Ensure category is valid based on your model choices
         valid_categories = [c[0] for c in TrackingValue.TYPE_CHOICES]
         if category not in valid_categories:
             raise ValueError(f"Invalid category. Choose from: {valid_categories}")
 
-        # get_or_create finds the specific row for today and that category
         obj, created = TrackingValue.objects.get_or_create(
             date=entry_date,
             category=category
         )
 
-        # Using F() expression to add the amount directly in PostgreSQL
-        # This is safer than doing obj.amount += amount in Python
         TrackingValue.objects.filter(pk=obj.pk).update(amount=F('amount') + amount)
 
     @staticmethod
