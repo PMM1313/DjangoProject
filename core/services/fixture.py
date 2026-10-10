@@ -638,47 +638,10 @@ class FixtureService:
                     # if all plus is used by use_plus_for_recovery(fixture), all_plus will be Decimal 0
                     TrackingValues.add_entry(all_plus, "PLUS_EARNED", entry_date=fixture.date)
 
-                # Checking the need to adjust past sunday and next monday week snapshots
-                # if fixture is not resolving in its week
-                # Compute Bulgarian local calendar dates
-                local_fixture_date = timezone.localtime(fixture.date).date()
-                current_local_date = timezone.localtime(timezone.now()).date()
 
-                # Calculate week-ending Sundays (weekday 6)
-                fixture_sunday = local_fixture_date + timedelta(days=(6 - local_fixture_date.weekday()))
-                current_sunday = current_local_date + timedelta(days=(6 - current_local_date.weekday()))
+            # logic for Fixture not draw, but played and match finished
+            elif not fixture.is_draw and fixture.is_played and fixture.status == 'Match Finished':
 
-                is_past_week = fixture_sunday < current_sunday
-
-                if is_past_week:
-                    # Bets contributed by this fixture
-                    home_bet = fixture.home_team_bet or Decimal('0.00')
-                    away_bet = fixture.away_team_bet or Decimal('0.00')
-                    total_fixture_bet = home_bet + away_bet
-
-                    next_monday = fixture_sunday + timedelta(days=1)
-
-                    # 1. Deduct from target Sunday (ALL_BETS_SNAPSHOT_END)
-                    sunday_snapshot, _ = TrackingValue.objects.get_or_create(
-                        date=fixture_sunday,
-                        category='ALL_BETS_SNAPSHOT_END',
-                        defaults={'amount': Decimal('0.00')}
-                    )
-                    TrackingValue.objects.filter(pk=sunday_snapshot.pk).update(
-                        amount=F('amount') - total_fixture_bet
-                    )
-
-                    # 2. Deduct from following Monday (ALL_BETS_SNAPSHOT_START)
-                    monday_snapshot, _ = TrackingValue.objects.get_or_create(
-                        date=next_monday,
-                        category='ALL_BETS_SNAPSHOT_START',
-                        defaults={'amount': Decimal('0.00')}
-                    )
-                    TrackingValue.objects.filter(pk=monday_snapshot.pk).update(
-                        amount=F('amount') - total_fixture_bet
-                    )
-
-            else:
                 # 4. ATOMIC INCREMENT: Add 1 to the current DB value
                 # Coalesce ensures that if no_draw is NULL, it starts at 0
                 # За домакина
@@ -694,6 +657,69 @@ class FixtureService:
                     no_draw=Coalesce(F('no_draw'), 0) + 1,
                     is_played=False
                 )
+
+
+            # Logic that cheks the need for weeks snapshot correction
+            # Checking the need to adjust past sunday and next monday week snapshots
+            # if fixture is not resolving in its week
+            # Compute Bulgarian local calendar dates
+            local_fixture_date = timezone.localtime(fixture.date).date()
+            current_local_date = timezone.localtime(timezone.now()).date()
+
+            # Calculate week-ending Sundays (weekday 6)
+            fixture_sunday = local_fixture_date + timedelta(days=(6 - local_fixture_date.weekday()))
+            current_sunday = current_local_date + timedelta(days=(6 - current_local_date.weekday()))
+
+            is_past_week = fixture_sunday < current_sunday
+
+            if is_past_week:
+
+                total_correction_amount = Decimal('0.00')
+                is_addition = False  # Flag to track whether we are adding or subtracting
+
+                if fixture.is_draw and fixture.is_played and fixture.status == 'Match Finished':
+                    # 1. Fetch the Team instances safely using the ID fields for a draw
+                    home_team = Team.objects.filter(id=fixture.home_id).first()
+                    away_team = Team.objects.filter(id=fixture.away_id).first()
+
+                    home_team_all_bets = (home_team.all_bets or Decimal('0.00')) if home_team else Decimal('0.00')
+                    away_team_all_bets = (away_team.all_bets or Decimal('0.00')) if away_team else Decimal('0.00')
+
+                    total_correction_amount = home_team_all_bets + away_team_all_bets
+                    is_addition = False  # Subtract for draws
+
+                elif not fixture.is_draw and fixture.is_played and fixture.status == 'Match Finished':
+                    # 2. Use current fixture bets only for non-draws
+                    home_bet = fixture.home_team_bet or Decimal('0.00')
+                    away_bet = fixture.away_team_bet or Decimal('0.00')
+
+                    total_correction_amount = home_bet + away_bet
+                    is_addition = True  # Add for non-draws
+
+                if total_correction_amount > Decimal('0.00'):
+                    next_monday = fixture_sunday + timedelta(days=1)
+
+                    # Determine the F() expression based on whether we are adding or subtracting
+                    sunday_expr = F('amount') + total_correction_amount if is_addition else F(
+                        'amount') - total_correction_amount
+                    monday_expr = F('amount') + total_correction_amount if is_addition else F(
+                        'amount') - total_correction_amount
+
+                    # A. Update target Sunday (ALL_BETS_SNAPSHOT_END)
+                    sunday_snapshot, _ = TrackingValue.objects.get_or_create(
+                        date=fixture_sunday,
+                        category='ALL_BETS_SNAPSHOT_END',
+                        defaults={'amount': Decimal('0.00')}
+                    )
+                    TrackingValue.objects.filter(pk=sunday_snapshot.pk).update(amount=sunday_expr)
+
+                    # B. Update following Monday (ALL_BETS_SNAPSHOT_START)
+                    monday_snapshot, _ = TrackingValue.objects.get_or_create(
+                        date=next_monday,
+                        category='ALL_BETS_SNAPSHOT_START',
+                        defaults={'amount': Decimal('0.00')}
+                    )
+                    TrackingValue.objects.filter(pk=monday_snapshot.pk).update(amount=monday_expr)
 
             # 5. ARCHIVE & CLEANUP
             # Create the permanent history record before deleting the active fixture

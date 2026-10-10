@@ -46,49 +46,19 @@ class TeamAdmin(admin.ModelAdmin):
     list_editable = ('is_active',)  # Quickly activate/deactivate teams in bulk
 
 
-# @admin.register(Fixture)
-# class FixtureAdmin(admin.ModelAdmin):
-#     list_display = (
-#         'fixture_id',
-#         'match_display',
-#         'date',
-#         'league',
-#         'status',
-#         'is_played',
-#         'is_draw_display',
-#         'home_team_profit',
-#         'away_team_profit',
-#     )
-#     list_filter = ('status', 'is_played', 'league', 'country', 'date')
-#     search_fields = (
-#         'fixture_id',
-#         'api_sport_id',
-#         'home_team_name',
-#         'away_team_name',
-#         'home_id',
-#         'away_id',
-#     )
-#     date_hierarchy = 'date'
-#     ordering = ('-date',)
-#
-#     # Custom callable method to display the match name
-#     @admin.display(description='Match')
-#     def match_display(self, obj):
-#         return f"{obj.home_team_name} vs {obj.away_team_name}"
-#
-#     # Displays the model @property 'is_draw' safely in the list view
-#     @admin.display(description='Is Draw', boolean=True)
-#     def is_draw_display(self, obj):
-#         return obj.is_draw
+@admin.register(TrackingValue)
+class TrackingValueAdmin(admin.ModelAdmin):
+    # Columns shown in the list view
+    list_display = ('date', 'category', 'amount')
 
+    # Sidebar filters for quick navigation
+    list_filter = ('category', 'date')
 
-# @admin.register(TrackingValue)
-# class TrackingValueAdmin(admin.ModelAdmin):
-#     list_display = ('id', 'date', 'category', 'amount')
-#     list_filter = ('category', 'date')
-#     search_fields = ('category',)
-#     date_hierarchy = 'date'
-#     ordering = ('-date',)
+    # Enable search by category name
+    search_fields = ('category',)
+
+    # Default ordering in the admin list
+    ordering = ('-date', 'category')
 
 
 @admin.register(Settings)
