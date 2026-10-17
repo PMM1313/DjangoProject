@@ -1,0 +1,286 @@
+
+<style>
+    .bet-playground-container {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: #1f2937;
+        background-color: #f9fafb;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    .bp-wrapper {
+        max-width: 1024px;
+        margin: 0 auto;
+    }
+
+    .bp-title {
+        font-size: 24px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 24px;
+        color: #111827;
+    }
+
+    @media (min-width: 640px) {
+        .bp-title {
+            font-size: 30px;
+        }
+    }
+
+    .bp-card {
+        background: #ffffff;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 32px;
+        border: 1px solid #f3f4f6;
+    }
+
+    .bp-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    @media (min-width: 640px) {
+        .bp-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .bp-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    .bp-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+    }
+
+    .bp-input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 14px;
+        box-sizing: border-box;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .bp-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .bp-error {
+        margin-top: 16px;
+        color: #dc2626;
+        font-weight: 500;
+        font-size: 14px;
+    }
+
+    .bp-error.hidden {
+        display: none;
+    }
+
+    .bp-table-container {
+        overflow-x: auto;
+    }
+
+    .bp-table {
+        width: 100%;
+        text-align: left;
+        border-collapse: collapse;
+    }
+
+    .bp-table th {
+        background-color: #f3f4f6;
+        color: #374151;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.05em;
+        padding: 12px 16px;
+    }
+
+    .bp-table th:first-child {
+        border-top-left-radius: 8px;
+        border-bottom-left-radius: 8px;
+    }
+
+    .bp-table th:last-child {
+        border-top-right-radius: 8px;
+        border-bottom-right-radius: 8px;
+    }
+
+    .bp-table td {
+        padding: 12px 16px;
+        font-size: 14px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .bp-table tbody tr {
+        transition: background-color 0.15s;
+    }
+
+    .bp-table tbody tr:hover {
+        background-color: #f9fafb;
+    }
+
+    .bp-subtitle {
+        font-size: 20px;
+        font-weight: bold;
+        color: #1f2937;
+        margin-bottom: 16px;
+    }
+
+    .text-bold { font-weight: bold; color: #111827; }
+    .text-blue { font-weight: 600; color: #2563eb; }
+    .text-gray { color: #4b5563; }
+    .text-green { font-weight: bold; color: #16a34a; }
+</style>
+
+<div class="bet-playground-container">
+    <div class="bp-wrapper">
+        <h1 class="bp-title">
+            Калкулатор за прогресия до 30 стъпки
+        </h1>
+
+        <!-- Контролен панел (Форма) -->
+        <div class="bp-card">
+            <div class="bp-grid">
+                <div>
+                    <label class="bp-label">
+                        Мин. залог (€)
+                    </label>
+                    <input type="number" id="initialStake" value="0.12" step="0.01" min="0.01" class="bp-input">
+                </div>
+                <div>
+                    <label class="bp-label">
+                        Коефициент (среден)
+                    </label>
+                    <input type="number" id="odds" value="3.60" step="0.01" min="1.01" class="bp-input">
+                </div>
+                <div>
+                    <label class="bp-label">
+                        Марж / Печалба (%)
+                    </label>
+                    <input type="number" id="marginPercent" value="10.00" step="0.1" min="0" class="bp-input">
+                </div>
+                <div>
+                    <label class="bp-label">
+                        Допълнителна печалба (€)
+                    </label>
+                    <input type="number" id="extraProfit" value="0.00" step="0.01" min="0" class="bp-input">
+                </div>
+            </div>
+            <!-- Съобщение за грешка при невалидни параметри -->
+            <div id="errorMessage" class="bp-error hidden"></div>
+        </div>
+
+        <!-- Таблица с резултати -->
+        <div class="bp-card">
+            <h2 class="bp-subtitle">Резултати от прогресията (до 30 стъпки)</h2>
+            <div class="bp-table-container">
+                <table class="bp-table">
+                    <thead>
+                        <tr>
+                            <th>Стъпка</th>
+                            <th>Залог за стъпката</th>
+                            <th>Общо инвестирани дотук</th>
+                            <th>Потенциално връщане</th>
+                            <th>Чиста печалба при успех</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- JS ще попълни редовете тук -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function calculateProgression() {
+        const initialStakeInput = parseFloat(document.getElementById('initialStake').value);
+        const oddsInput = parseFloat(document.getElementById('odds').value);
+        const marginPercentInput = parseFloat(document.getElementById('marginPercent').value);
+        const extraProfitInput = parseFloat(document.getElementById('extraProfit').value) || 0;
+
+        const errorDiv = document.getElementById('errorMessage');
+        const tableBody = document.getElementById('tableBody');
+
+        // Изчистване на грешките
+        errorDiv.classList.add('hidden');
+        errorDiv.textContent = '';
+        tableBody.innerHTML = '';
+
+        // Валидация
+        if (isNaN(initialStakeInput) || initialStakeInput <= 0 ||
+            isNaN(oddsInput) || oddsInput <= 1 ||
+            isNaN(marginPercentInput) || marginPercentInput < 0 ||
+            isNaN(extraProfitInput) || extraProfitInput < 0) {
+            errorDiv.textContent = 'Моля, въведете валидни положителни стойности.';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        const marginMultiplier = 1.0 + (marginPercentInput / 100.0);
+
+        if (oddsInput <= marginMultiplier) {
+            errorDiv.textContent = `Коефициентът (${oddsInput}) е прекалено нисък за постигане на тези параметри. Изберете по-висок коефициент или намалете маржа/печалбата.`;
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        let totalInvested = 0;
+        let htmlRows = '';
+
+        for (let step = 1; step <= 30; step++) {
+            let stake;
+            if (step === 1) {
+                const numerator = (marginMultiplier * 0) + extraProfitInput;
+                const calcStake = numerator / (oddsInput - marginMultiplier);
+                stake = Math.max(initialStakeInput, calcStake);
+            } else {
+                const numerator = (marginMultiplier * totalInvested) + extraProfitInput;
+                const denominator = oddsInput - marginMultiplier;
+                const calcStake = numerator / denominator;
+
+                // Прилагаме правилото за минимален залог (не може да падне под началния)
+                stake = Math.max(initialStakeInput, calcStake);
+            }
+
+            totalInvested += stake;
+            const potentialReturn = stake * oddsInput;
+            const netProfit = potentialReturn - totalInvested;
+
+            htmlRows += `
+                <tr>
+                    <td class="text-bold">#${step}</td>
+                    <td class="text-blue">${stake.toFixed(2)} €</td>
+                    <td class="text-gray">${totalInvested.toFixed(2)} €</td>
+                    <td class="text-gray">${potentialReturn.toFixed(2)} €</td>
+                    <td class="text-green">+${netProfit.toFixed(2)} €</td>
+                </tr>
+            `;
+        }
+
+        tableBody.innerHTML = htmlRows;
+    }
+
+    // Закачане на събития за живо обновяване при писане/промяна
+    document.getElementById('initialStake').addEventListener('input', calculateProgression);
+    document.getElementById('odds').addEventListener('input', calculateProgression);
+    document.getElementById('marginPercent').addEventListener('input', calculateProgression);
+    document.getElementById('extraProfit').addEventListener('input', calculateProgression);
+
+    // Първоначално изчисление при зареждане на страницата
+    calculateProgression();
+</script>

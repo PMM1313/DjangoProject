@@ -1,17 +1,18 @@
 #!/bin/sh
 set -e # stop execution if something doesnt start
 
-# Wait briefly for infrastructure services
-echo "Waiting for database infrastructure..."
-sleep 3
-
 # Check what argument is passed from Coolify (defaults to 'web' if nothing is passed)
 COMMAND="${1:-web}"
 
 case "$COMMAND" in
   web)
-    echo "Running web tasks..."
+    echo "Waiting for database..."
+    python scripts/wait_for_db.py
+
+    echo "Running database migrations..."
     python manage.py migrate --noinput
+
+    echo "Collecting static files..."
     python manage.py collectstatic --noinput
 
     echo "Starting production WSGI server via Gunicorn..."
@@ -26,11 +27,23 @@ case "$COMMAND" in
     ;;
 
   worker)
+    echo "Waiting for database..."
+    python scripts/wait_for_db.py
+
+    echo "Waiting for Redis..."
+    python scripts/wait_for_redis.py
+
     echo "Starting Celery Worker..."
-    exec python -m celery -A Server worker --loglevel=info
+    exec python -m celery -A Server worker --loglevel=info --concurrency=1
     ;;
 
   beat)
+    echo "Waiting for database..."
+    python scripts/wait_for_db.py
+
+    echo "Waiting for Redis..."
+    python scripts/wait_for_redis.py
+
     echo "Starting Celery Beat..."
     exec python -m celery -A Server beat --loglevel=info
     ;;

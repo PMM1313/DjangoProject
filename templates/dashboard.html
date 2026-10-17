@@ -9,21 +9,17 @@
 
     <hr>
 
-    <div class='summary_and_nav' style="
-        display: flex;
-        flex-direction: column;
+    <div class='summary_and_nav' style="display: flex; flex-direction: column;
         gap: 20px;
         border: 1px solid;
         border-radius: 8px;
         background: #eee">
 
         <div style="
-            {#border: 1px solid;#}
             border-radius: 8px;
             padding-left: 20px;
             background: #eee;
             display: grid;
-            /* This creates 3 equal columns, even if one is empty! */
             grid-template-columns: 1fr 1fr 1fr 1fr;
             gap: 10px;">
 
@@ -128,6 +124,14 @@
         </button>
 
         <button class="tab-btn"
+                onclick="switchTab(this, 'recoveries-tab')"
+                data-hx-get="{% url 'recoveries_tab' %}"
+                data-hx-target="#recoveries-tab-container"
+                data-hx-trigger="click">
+            Recoveries
+        </button>
+
+        <button class="tab-btn"
                 onclick="switchTab(this, 'leagues-tab')"
                 data-hx-get="{% url 'leagues_tab_page' %}"
                 data-hx-target="#leagues-tab-content"
@@ -161,6 +165,14 @@
 
         <button class="tab-btn">
             Settings
+        </button>
+
+        <button class="tab-btn"
+                onclick="switchTab(this, 'bet-playground-tab')"
+                data-hx-get="{% url 'bet_playground_tab_page' %}"
+                data-hx-target="#bet-playground-tab-content"
+                data-hx-trigger="click">
+            Bet playground
         </button>
 
     </div>
@@ -317,6 +329,11 @@
         </div>
     </div>
 
+    <div id="recoveries-tab" class="tab-content" style="display: none;">
+        <div id="recoveries-tab-container" style="text-align:center; padding: 0px;">
+        </div>
+    </div>
+
     <div id="leagues-tab" class="tab-content" style="display: none;">
         <div id="leagues-tab-content">
         </div>
@@ -324,6 +341,11 @@
 
     <div id="imports-tab" class="tab-content" style="display: none;">
         <div id="imports-tab-content">
+        </div>
+    </div>
+
+    <div id="bet-playground-tab" class="tab-content" style="display: none;">
+        <div id="bet-playground-tab-content" style="display: flex; justify-content: center; gap:20px">
         </div>
     </div>
 

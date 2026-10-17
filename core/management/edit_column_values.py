@@ -79,6 +79,15 @@ def test_simulating_all_bets():
     all_bets = bet.calculate_total_bets_based_on_no_draw_count()
     print(all_bets)
 
+from core.tasks import calculate_no_draw_brackets
+
 
 if __name__ == "__main__":
-    browserless.scrape_odds_portal()
+    result = calculate_no_draw_brackets.apply().get()
+
+    for bracket, data in result.items():
+        print(
+            f"ND_COUNT_{bracket}: "
+            f"teams={data['team_count']}, "
+            f"total_bets={data['total_bets']}"
+        )

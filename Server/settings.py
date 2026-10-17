@@ -304,4 +304,8 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'core.tasks.calculate_weekly_bets',
         'schedule': crontab(hour=0, minute=1, day_of_week='monday'),  # Monday at 00:01 using localtime Europe/Sofia
     },
+    'calculate-no-draw-brackets-every-monday': {
+        'task': 'core.tasks.calculate_no_draw_brackets',
+        'schedule': crontab(hour=0, minute=1, day_of_week='monday',),
+    },
 }

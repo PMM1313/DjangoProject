@@ -319,7 +319,7 @@ class TrackingValue(models.Model):
     ]
 
     date = models.DateField(db_index=True)
-    category = models.CharField(max_length=30, choices=TYPE_CHOICES, db_index=True)
+    category = models.CharField(max_length=30, db_index=True)
     amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
 
     class Meta:

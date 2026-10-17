@@ -40,7 +40,8 @@ urlpatterns = [
 
     path('equalize-in-range/', views.equalize_in_range, name='equalize_in_range'),
 
-
+    # recoveries tab
+    path('recoveries-tab/', views.recoveries_tab, name='recoveries_tab'),
     path('alpine-playground/', views.alpine_playground, name='alpine_playground'),
     path('streaks/', views.get_streaks, name='get_streaks'),
 
@@ -67,19 +68,7 @@ urlpatterns = [
 
     # extension data
     path('api/data/', views.receive_data, name='receive_data'),
+
+    path('bet/playground/', views.bet_playground, name='bet_playground_tab_page')
 ]
-#     # List all teams / Create a new team
-#     path("teams/", TeamListCreateView.as_view(), name="team-list-create"),
-#
-#     # Retrieve / Delete a team by team_id
-#     path("teams/<int:team_id>/", TeamDetailView.as_view(), name="team-detail"),
-#     path("teams/get_all_teams/", teams_list_partial, name="teams_list_partial"),
-#     path("fixtures/sync/", fetch_and_save_fixtures, name="fetch-and-save-fixtures"),
-#     path('fixture/delete/<int:pk>/', delete_fixture, name='delete_fixture'),
-#     path('api/fixture/play/<int:pk>/', play_match, name='play_match'),
-#     path('fixture/resolve-match/<int:pk>/', resolve_match_view, name='resolve_match'),
-#     path('fixture/result-and-status/', results_and_statuses_view, name='fetch_scores_and_statuses'),
-#     path('team/fixtures/<int:team_id>/', team_fixtures_view, name='team_fixtures'),
-#     path('teams/distribution/', teams_distribution_view, name='distribution_table'),
-#     # path("fixtures/import/", import_fixtures_view, name="import-fixtures"),
-# ]
+

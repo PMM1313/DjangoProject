@@ -605,11 +605,20 @@ class FixtureService:
             # 1. LOCK the fixture row so no other process can resolve it simultaneously
             fixture: Fixture = Fixture.objects.select_for_update().get(fixture_id=fixture_id)
 
+            is_draw = None
+
             home_team_id = fixture.home_id
             away_team_id = fixture.away_id
 
-            if fixture.is_draw and fixture.is_played and fixture.status == 'Match Finished':
+            home_team = Team.objects.filter(id=home_team_id).first()
+            away_team = Team.objects.filter(id=away_team_id).first()
 
+            # for the weekly correction snapshot, because if its draw, these values are reseted to 0
+            home_team_all_bets = (home_team.all_bets or Decimal('0.00')) if home_team else Decimal('0.00')
+            away_team_all_bets = (away_team.all_bets or Decimal('0.00')) if away_team else Decimal('0.00')
+
+            if fixture.is_draw and fixture.is_played and fixture.status == 'Match Finished':
+                is_draw = True
                 # check if use_plus_for_recover is True and use it for recover
                 settings = Settings.load()
                 use_plus_for_recover = settings.use_plus_for_recover
@@ -641,7 +650,7 @@ class FixtureService:
 
             # logic for Fixture not draw, but played and match finished
             elif not fixture.is_draw and fixture.is_played and fixture.status == 'Match Finished':
-
+                is_draw = False
                 # 4. ATOMIC INCREMENT: Add 1 to the current DB value
                 # Coalesce ensures that if no_draw is NULL, it starts at 0
                 # За домакина
@@ -673,20 +682,32 @@ class FixtureService:
             is_past_week = fixture_sunday < current_sunday
 
             if is_past_week:
+                current_date = timezone.localdate()
+
+                this_monday = current_date - timedelta(days=current_date.weekday())
 
                 total_correction_amount = Decimal('0.00')
                 is_addition = False  # Flag to track whether we are adding or subtracting
 
                 if fixture.is_draw and fixture.is_played and fixture.status == 'Match Finished':
                     # 1. Fetch the Team instances safely using the ID fields for a draw
-                    home_team = Team.objects.filter(id=fixture.home_id).first()
-                    away_team = Team.objects.filter(id=fixture.away_id).first()
-
-                    home_team_all_bets = (home_team.all_bets or Decimal('0.00')) if home_team else Decimal('0.00')
-                    away_team_all_bets = (away_team.all_bets or Decimal('0.00')) if away_team else Decimal('0.00')
 
                     total_correction_amount = home_team_all_bets + away_team_all_bets
                     is_addition = False  # Subtract for draws
+
+                    ### for the ND brackets monday snapshot ###
+                    teams_with_bets = [
+                        (home_team, home_team_all_bets),
+                        (away_team, away_team_all_bets),
+                    ]
+
+                    TrackingValues.update_no_draw_brackets(
+                        teams_with_bets=teams_with_bets,
+                        is_draw=is_draw,
+                        snapshot_date=this_monday,
+                    )
+                    ### END for the ND brackets monday snapshot ###
+
 
                 elif not fixture.is_draw and fixture.is_played and fixture.status == 'Match Finished':
                     # 2. Use current fixture bets only for non-draws
@@ -695,6 +716,16 @@ class FixtureService:
 
                     total_correction_amount = home_bet + away_bet
                     is_addition = True  # Add for non-draws
+
+                    ### for the ND brackets monday snapshot ###
+                    teams_with_bets = [(home_team, home_bet),(away_team, away_bet),]
+
+                    TrackingValues.update_no_draw_brackets(
+                        teams_with_bets=teams_with_bets,
+                        is_draw=is_draw,
+                        snapshot_date=this_monday,
+                    )
+                    ### END for the ND brackets monday snapshot ###
 
                 if total_correction_amount > Decimal('0.00'):
                     next_monday = fixture_sunday + timedelta(days=1)

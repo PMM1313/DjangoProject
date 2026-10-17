@@ -27,10 +27,6 @@ class TrackingValues:
             # Convert UTC datetime to local time (Europe/Sofia) before extracting .date()
             entry_date = timezone.localtime(entry_date).date()
 
-        valid_categories = [c[0] for c in TrackingValue.TYPE_CHOICES]
-        if category not in valid_categories:
-            raise ValueError(f"Invalid category. Choose from: {valid_categories}")
-
         obj, created = TrackingValue.objects.get_or_create(
             date=entry_date,
             category=category
@@ -292,4 +288,74 @@ class TrackingValues:
         merge_stats(archived_stats)
 
         return stats_by_week
+
+    @staticmethod
+    def update_tracking_value(snapshot_date, category, delta):
+        """Create the TrackingValue if missing, then adjust its amount."""
+        tracking_value, created = TrackingValue.objects.get_or_create(
+            date=snapshot_date,
+            category=category,
+            defaults={"amount": 0},
+        )
+
+        if created:
+            # The new row starts at zero, so apply the delta directly.
+            tracking_value.amount = delta
+            tracking_value.save(update_fields=["amount"])
+        else:
+            TrackingValue.objects.filter(pk=tracking_value.pk).update(
+                amount=F("amount") + delta
+            )
+
+    @staticmethod
+    @transaction.atomic
+    def update_no_draw_brackets(
+            teams_with_bets,
+            is_draw,
+            snapshot_date,
+    ):
+        for team, current_bet in teams_with_bets:
+
+            if team is None:
+                continue
+
+            bracket = team.no_draw
+
+            # Every result removes this team from its previous bracket.
+            TrackingValues.update_tracking_value(
+                snapshot_date,
+                f"ND_COUNT_{bracket}",
+                -1,
+            )
+
+            if is_draw:
+                # A draw resets the team's no-draw streak to zero.
+                TrackingValues.update_tracking_value(
+                    snapshot_date,
+                    f"ND_COUNT_0",
+                    1,
+                )
+
+                # Remove this team's accumulated bets from its old bracket.
+                TrackingValues.update_tracking_value(
+                    snapshot_date,
+                    f"ND_BETS_{bracket}",
+                    -team.all_bets,
+                )
+
+            else:
+                # A non-draw moves the team to the next bracket.
+                TrackingValues.update_tracking_value(
+                    snapshot_date,
+                    f"ND_COUNT_{bracket + 1}",
+                    1,
+                )
+
+                # Add the current bet to the next bracket.
+                TrackingValues.update_tracking_value(
+                    snapshot_date,
+                    f"ND_BETS_{bracket + 1}",
+                    current_bet,
+                )
+
 

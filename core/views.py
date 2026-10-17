@@ -1320,7 +1320,7 @@ def receive_data(request):
         }, status=500)  # 500 is more accurate for code crashes
 
 
-####################### SYSTEM DATA VIEW #######################################
+####################### SYSTEM DATA VIEW ########################################
 @login_required
 def system_storage_view(request):
     # 1. Check if Coolify mounted the host filesystem
@@ -1359,4 +1359,22 @@ def system_storage_view(request):
 
     return render(request, 'system/storage.html', context)
 
-####################### END OF SYSTEM DATA VIEW ################################
+####################### END OF SYSTEM DATA VIEW ##################################
+
+
+###################### BET PLAYGROUND TAB ########################################
+@login_required
+def bet_playground(request):
+    return render(request, 'bet_playground/playground.html')
+
+###################### END OF PLAYGROUND TAB ######################################
+
+
+###################### RECOVERIES TAB #############################################
+def recoveries_tab(request):
+    context = {'recoveries': ForRecover.objects.select_related(
+        'team'
+    ).order_by('-date_added_to_recover')}
+    return render(request, 'recoveries_tab/recoveries_tab.html', context)
+
+###################### END OF RECOVERIES TAB ######################################
