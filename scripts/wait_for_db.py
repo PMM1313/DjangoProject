@@ -2,6 +2,11 @@ import os
 import sys
 import time
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "Server.settings")
+
 import django
 from django.db import connections
 from django.db.utils import OperationalError
