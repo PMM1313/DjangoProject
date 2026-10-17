@@ -5,6 +5,16 @@ import time
 import django
 from django.db import connections
 from django.db.utils import OperationalError
+
+
+print("=== Python import diagnostics ===", flush=True)
+print("Working directory:", os.getcwd(), flush=True)
+print("Python executable:", sys.executable, flush=True)
+print("Python path:", sys.path, flush=True)
+print("Server directory exists:", os.path.isdir("/app/Server"), flush=True)
+print("Server init exists:", os.path.isfile("/app/Server/__init__.py"), flush=True)
+print("Settings exists:", os.path.isfile("/app/Server/settings.py"), flush=True)
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "Server.settings")
 
 MAX_ATTEMPTS = 30
