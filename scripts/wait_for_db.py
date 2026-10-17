@@ -1,11 +1,11 @@
-
+import os
 import sys
 import time
 
 import django
 from django.db import connections
 from django.db.utils import OperationalError
-
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "Server.settings")
 
 MAX_ATTEMPTS = 30
 RETRY_DELAY = 2
