@@ -47,6 +47,13 @@ COPY --from=builder /root/.local /root/.local
 # Copy application source code
 COPY . /app/
 
+RUN echo "=== /app contents ===" \
+    && ls -la /app \
+    && echo "=== Server directory ===" \
+    && ls -la /app/Server \
+    && echo "=== settings.py search ===" \
+    && find /app -maxdepth 4 -name settings.py
+
 # Ensure entrypoint script is executable
 RUN chmod +x /app/entrypoint.sh
 
