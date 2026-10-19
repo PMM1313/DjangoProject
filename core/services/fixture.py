@@ -718,7 +718,7 @@ class FixtureService:
                     is_addition = True  # Add for non-draws
 
                     ### for the ND brackets monday snapshot ###
-                    teams_with_bets = [(home_team, home_bet),(away_team, away_bet),]
+                    teams_with_bets = [(home_team, home_bet), (away_team, away_bet),]
 
                     TrackingValues.update_no_draw_brackets(
                         teams_with_bets=teams_with_bets,
@@ -727,6 +727,7 @@ class FixtureService:
                     )
                     ### END for the ND brackets monday snapshot ###
 
+                # All bets snapshot correction
                 if total_correction_amount > Decimal('0.00'):
                     next_monday = fixture_sunday + timedelta(days=1)
 

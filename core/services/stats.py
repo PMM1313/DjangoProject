@@ -325,16 +325,16 @@ class TrackingValues:
             TrackingValues.update_tracking_value(
                 snapshot_date,
                 f"ND_COUNT_{bracket}",
-                -1,
+                -1 if bracket > 0 else 0, # if its second draw in a raw, snapshot already got it at ND 0
             )
 
             if is_draw:
-                # A draw resets the team's no-draw streak to zero.
-                TrackingValues.update_tracking_value(
-                    snapshot_date,
-                    f"ND_COUNT_0",
-                    1,
-                )
+                # # A draw resets the team's no-draw streak to zero.
+                # TrackingValues.update_tracking_value(
+                #     snapshot_date,
+                #     f"ND_COUNT_0",
+                #     1 if bracket > 0 else 0, # if its second draw in a raw, snapshot already got it at ND 0,
+                # )
 
                 # Remove this team's accumulated bets from its old bracket.
                 TrackingValues.update_tracking_value(
@@ -351,11 +351,20 @@ class TrackingValues:
                     1,
                 )
 
-                # Add the current bet to the next bracket.
+                # Add the all_bets and current bet to the next bracket.
                 TrackingValues.update_tracking_value(
                     snapshot_date,
                     f"ND_BETS_{bracket + 1}",
-                    current_bet,
+                    team.all_bets + current_bet,
                 )
+
+                # remove all bets from previous bracket
+                TrackingValues.update_tracking_value(
+                    snapshot_date,
+                    f"ND_BETS_{bracket}",
+                    -team.all_bets,
+                )
+
+
 
 
