@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
 from pathlib import Path
+from xmlrpc.client import Boolean
 
 import dj_database_url
 from dotenv import load_dotenv
@@ -131,10 +132,12 @@ CONSTANCE_CONFIG = {
     'MIN_BET': (Decimal("0.10"), 'Minimum bet allowed per round', Decimal),
     'AVG_PERC_DRAW': (Decimal("22.00"), 'Average percentage draw per round', Decimal),
     'ROUNDS_FOR_EARNING_BACK': (3, 'Number of rounds to earn back investment', int),
+    'ALLWAYS_PLUS': (False, 'Make additional bet to have guaranteed plus', Boolean),
+    'ALLWAYS_PLUS_AMOUNT': (Decimal("0.10"), 'Allways plus amount', Decimal),
 }
 # Optional: Group them in the Admin UI for better looks
 CONSTANCE_CONFIG_FIELDSETS = {
-    'Betting Settings': ('MIN_BET', 'AVG_PERC_DRAW'),
+    'Betting Settings': ('MIN_BET', 'AVG_PERC_DRAW', "ALLWAYS_PLUS", "ALLWAYS_PLUS_AMOUNT"),
     'Stats Settings': ('ROUNDS_FOR_EARNING_BACK',),
 }
 

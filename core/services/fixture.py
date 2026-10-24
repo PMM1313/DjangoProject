@@ -1,5 +1,5 @@
 from collections import defaultdict
-from decimal import Decimal, ROUND_HALF_UP, ROUND_UP
+from decimal import Decimal, ROUND_HALF_UP, ROUND_UP, ROUND_CEILING
 from typing import Optional
 
 import requests, traceback
@@ -21,9 +21,11 @@ from .league import LeagueService
 from .team import TeamService
 from .stats import TrackingValues
 from .bet import calculate_required_bet
+from .. import services
 from ..models import Team, Fixture, Country, League, Settings, ArchivedFixture, ExternalMapping, TeamLeagueHistory, \
     TrackingValue
 from .for_recover import use_plus_for_recovery
+from constance import config
 
 
 class FixtureService:
@@ -592,6 +594,11 @@ class FixtureService:
             # 6. Saving total bets to DB
             TrackingValues.add_entry(total_bets, "BET", entry_date=fixture.date)
 
+            # Check if always plus is active
+
+            if config.ALLWAYS_PLUS:
+                fixture = FixtureService.calculate_always_plus(fixture)
+
             # 3. Finalize Fixture
             fixture.is_played = True
             fixture.save()
@@ -626,6 +633,7 @@ class FixtureService:
                 Team.objects.filter(id__in=[home_team_id, away_team_id]).update(
                     all_bets=Decimal('0.00'),
                     extra_bets=Decimal('0.00'),
+                    gp_all_bets=Decimal('0.00'),
                     no_draw=0,
                     is_played=False
                 )
@@ -656,6 +664,7 @@ class FixtureService:
                 # За домакина
                 Team.objects.filter(id=home_team_id).update(
                     all_bets=Coalesce(F('all_bets'), Decimal('0.00')) + fixture.home_team_bet,
+                    gp_all_bets=F('gp_all_bets') + fixture.home_team_gp_bet,
                     no_draw=Coalesce(F('no_draw'), 0) + 1,
                     is_played=False
                 )
@@ -663,6 +672,7 @@ class FixtureService:
                 # За госта
                 Team.objects.filter(id=away_team_id).update(
                     all_bets=Coalesce(F('all_bets'), Decimal('0.00')) + fixture.away_team_bet,
+                    gp_all_bets=F('gp_all_bets') + fixture.away_team_gp_bet,
                     no_draw=Coalesce(F('no_draw'), 0) + 1,
                     is_played=False
                 )
@@ -809,6 +819,10 @@ class FixtureService:
             home_team_bet=fixture.home_team_bet or 0,
             away_team_bet=fixture.away_team_bet or 0,
 
+            # guaranteed plus bet
+            home_team_gp_bet=fixture.home_team_gp_bet or Decimal('0.00'),
+            away_team_gp_bet=fixture.away_team_gp_bet or Decimal('0.00'),
+
             home_team_money_to_recover=fixture.home_team_money_to_recover or 0,
             away_team_money_to_recover=fixture.away_team_money_to_recover or 0,
             home_team_entry_for_recovery_with_bet=fixture.home_team_entry_for_recovery_with_bet or 0,
@@ -823,6 +837,11 @@ class FixtureService:
             away_team_profit=fixture.away_team_profit or 0,
             home_team_plus=fixture.home_team_plus or 0,
             away_team_plus=fixture.away_team_plus or 0,
+
+            # guaranteed plus
+            home_team_gp_plus=fixture.home_team_gp_plus or Decimal('0.000'),
+            away_team_gp_plus=fixture.away_team_gp_plus or Decimal('0.000'),
+
             coefficient=fixture.coefficient or 0,
             home_score=fixture.home_score,
             away_score=fixture.away_score,
@@ -940,3 +959,61 @@ class FixtureService:
 
         fixture_id_str = f"{year_str}{month_str}{day_str}{home_str}{away_str}"
         return int(fixture_id_str)
+
+    @staticmethod
+    def calculate_always_plus(fixture):
+        """
+        Checks home and away teams. If a team has a bet > 0 and its current plus
+        is lower than config.ALLWAYS_PLUS_AMOUNT, calculates the required gp_bet
+        to recover past bets and hit the target plus amount.
+        """
+
+        target_plus = config.ALLWAYS_PLUS_AMOUNT
+        coefficient = fixture.coefficient
+        denominator = coefficient - Decimal('1.00')
+
+        def compute_bet_and_plus(gp_all_bets, current_plus):
+            numerator = gp_all_bets + target_plus - current_plus
+            raw_bet = numerator / denominator
+
+            # 1. Round UP to 2 decimal places for the stake
+            gp_bet = raw_bet.quantize(Decimal('0.01'), rounding=ROUND_CEILING)
+
+            # 2. Calculate exact net win (gp_plus) to 3 decimal places
+            total_invested = gp_all_bets + gp_bet
+            payout = (gp_bet * coefficient).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+            gp_plus = (payout - total_invested).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+
+            return gp_bet, gp_plus
+
+        # --- 1. Check Home Team ---
+        if fixture.home_team_bet and fixture.home_team_bet > Decimal('0'):
+            current_plus = fixture.home_team_plus if fixture.home_team_plus is not None else Decimal('0.00')
+            if current_plus < target_plus:
+                try:
+                    team = Team.objects.get(id=fixture.home_id)
+                    gp_all_bets = team.gp_all_bets or Decimal('0.00')
+                    gp_bet, gp_plus = compute_bet_and_plus(gp_all_bets, current_plus)
+
+                    fixture.home_team_gp_bet = gp_bet
+                    fixture.home_team_gp_plus = gp_plus
+
+                except Team.DoesNotExist:
+                    pass
+
+        # --- 2. Check Away Team ---
+        if fixture.away_team_bet and fixture.away_team_bet > Decimal('0'):
+            current_plus = fixture.away_team_plus if fixture.away_team_plus is not None else Decimal('0.00')
+            if current_plus < target_plus:
+                try:
+                    team = Team.objects.get(id=fixture.away_id)
+                    gp_all_bets = team.gp_all_bets or Decimal('0.00')
+                    gp_bet, gp_plus = compute_bet_and_plus(gp_all_bets, current_plus)
+
+                    fixture.away_team_gp_bet = gp_bet
+                    fixture.away_team_gp_plus = gp_plus
+
+                except Team.DoesNotExist:
+                    pass
+
+        return fixture

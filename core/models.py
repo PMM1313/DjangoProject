@@ -46,6 +46,10 @@ class Team(models.Model):
     has_league_changes = models.BooleanField(default=False)
 
     all_bets = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+
+    # guaranteed plus
+    gp_all_bets = models.DecimalField(max_digits=10, decimal_places=2, default='0.00')
+
     extra_bets = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
     last_played_date = models.DateField(null=True, blank=True, default=None)
     no_draw = models.IntegerField(null=True, blank=True, default=0)
@@ -99,6 +103,10 @@ class Fixture(models.Model):
     home_team_bet = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
     away_team_bet = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
 
+    # guaranteed plus bet
+    home_team_gp_bet = models.DecimalField(max_digits=7, decimal_places=2, default='0.00')
+    away_team_gp_bet = models.DecimalField(max_digits=7, decimal_places=2, default='0.00')
+
     home_team_money_to_recover = models.DecimalField(max_digits=7, decimal_places=2, default='0.00')
     away_team_money_to_recover = models.DecimalField(max_digits=7, decimal_places=2, default='0.00')
     home_team_entry_for_recovery_with_bet = models.IntegerField(default=0)  # the entry in forrecover table
@@ -108,6 +116,10 @@ class Fixture(models.Model):
     away_team_profit = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
     home_team_plus = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     away_team_plus = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
+    # guaranteed plus win
+    home_team_gp_plus = models.DecimalField(max_digits=5, decimal_places=3, default='0.000')
+    away_team_gp_plus = models.DecimalField(max_digits=5, decimal_places=3, default='0.000')
 
     home_team_plus_used_for_recovery = models.BooleanField(default=False)
     away_team_plus_used_for_recovery = models.BooleanField(default=False)
@@ -139,10 +151,15 @@ class Fixture(models.Model):
     @property
     def total_fixture_bet(self):
         # Use 'or 0' to handle cases where the match hasn't been played yet
-        h_bet = self.home_team_bet or Decimal('0')
-        a_bet = self.away_team_bet or Decimal('0')
+        h_bet = self.home_team_bet or Decimal('0.00')
+        a_bet = self.away_team_bet or Decimal('0.00')
 
-        return h_bet + a_bet
+        h_gp_bet = self.home_team_gp_bet or Decimal('0.00')
+        a_gp_bet = self.away_team_gp_bet or Decimal('0.00')
+
+        total_bet = h_bet + a_bet + h_gp_bet + a_gp_bet
+
+        return total_bet
 
     @property
     def can_be_resolved(self):
@@ -222,10 +239,18 @@ class ArchivedFixture(models.Model):
     away_id = models.IntegerField(db_index=True)
     home_team_bet = models.DecimalField(max_digits=7, decimal_places=2)
     away_team_bet = models.DecimalField(max_digits=7, decimal_places=2)
+
+    home_team_gp_bet = models.DecimalField(max_digits=7, decimal_places=2, default='0.00')
+    away_team_gp_bet = models.DecimalField(max_digits=7, decimal_places=2, default='0.00')
+
     home_team_profit = models.DecimalField(max_digits=7, decimal_places=2)
     away_team_profit = models.DecimalField(max_digits=7, decimal_places=2)
     home_team_plus = models.DecimalField(max_digits=5, decimal_places=2)
     away_team_plus = models.DecimalField(max_digits=5, decimal_places=2)
+
+    # guaranteed plus win
+    home_team_gp_plus = models.DecimalField(max_digits=5, decimal_places=3, default='0.000')
+    away_team_gp_plus = models.DecimalField(max_digits=5, decimal_places=3, default='0.000')
 
     home_team_money_to_recover = models.DecimalField(max_digits=7, decimal_places=2, default='0.00')
     away_team_money_to_recover = models.DecimalField(max_digits=7, decimal_places=2, default='0.00')
