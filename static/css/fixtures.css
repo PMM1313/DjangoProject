@@ -162,7 +162,7 @@
     justify-content: center;
     align-items: center;
     /* Offsets the 60px time div on the left for true centering */
-    padding-right: 60px;
+    /*padding-right: 60px;*/
     font-size: 1.1rem;
 }
 

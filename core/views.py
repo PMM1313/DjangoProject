@@ -195,6 +195,9 @@ def get_recovery_data(request):
 
 @login_required
 def fixtures_partial(request):
+    """
+    Used when loading all the fixtures in the fixture table
+    """
     # Call directly on the Class
     data = FixtureService.get_grouped_fixtures()
 
@@ -464,6 +467,10 @@ def play_match(request, fixture_id):
 
     coef = request.POST.get('coefficient')
     fixture = FixtureService.play_match(fixture_id, coef)
+
+    # Add additional data to the object for the UI
+    # --- league change data for each team
+    fixture = FixtureService.prepare_fixture_for_ui(fixture)
 
     html = render_to_string("partials/fixture_row.html", {"f": fixture}, request=request)
     response = HttpResponse(html)

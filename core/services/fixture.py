@@ -561,6 +561,7 @@ class FixtureService:
             for side, team in [('home', home_team), ('away', away_team)]:
 
                 bet, profit, plus = Decimal('0.00'), Decimal('0.00'), Decimal('0.00')
+                n_play = 0
 
                 if team:
                     all_bets = Decimal(str(team.all_bets or 0))
@@ -583,6 +584,8 @@ class FixtureService:
                     plus = total_return - (total_cost + profit)
                     plus = max(Decimal('0'), plus).quantize(Decimal('0.01'), rounding=ROUND_UP)
 
+                    n_play = team.no_draw + 1
+
                     # save the last played date in the team and mark as played
                     Team.objects.filter(pk=team.id).update(last_played_date=today, is_played=True)
 
@@ -590,6 +593,8 @@ class FixtureService:
                 setattr(fixture, f"{side}_team_bet", bet)
                 setattr(fixture, f"{side}_team_profit", profit)
                 setattr(fixture, f"{side}_team_plus", plus)
+
+                setattr(fixture, f"{side}_n_play", n_play)
 
             # 6. Saving total bets to DB
             TrackingValues.add_entry(total_bets, "BET", entry_date=fixture.date)
@@ -854,6 +859,8 @@ class FixtureService:
             country=fixture.country,
             season=fixture.season,
             is_played=fixture.is_played,
+            home_n_play=fixture.home_n_play,
+            away_n_play = fixture.away_n_play,
             sources=fixture.sources
         )
 
@@ -1017,3 +1024,62 @@ class FixtureService:
                     pass
 
         return fixture
+
+    @staticmethod
+    def prepare_fixture_for_ui(fixture):
+        """
+        Prepare a fixture with all additional data required by the UI.
+        - league change for a team
+        """
+        FixtureService._attach_league_changes([fixture])
+
+        # Add other UI-specific preparation here when needed.
+
+        return fixture
+
+    @staticmethod
+    def _attach_league_changes(fixtures):
+        """
+        Adds additional data to fixture object to be used in UI
+        Attach the latest league-change history to one or more fixtures.
+        Accepts a single Fixture or an iterable of fixtures.
+        """
+        if isinstance(fixtures, Fixture):
+            fixtures = [fixtures]
+        else:
+            fixtures = list(fixtures)
+
+        team_ids = {
+            team_id
+            for f in fixtures
+            for team_id in (f.home_id, f.away_id)
+            if team_id
+        }
+
+        changed_team_ids = set(
+            Team.objects.filter(
+                id__in=team_ids,
+                has_league_changes=True,
+            ).values_list("id", flat=True)
+        )
+
+        team_history_map = {}
+
+        if changed_team_ids:
+            histories = (
+                TeamLeagueHistory.objects
+                .filter(team_id__in=changed_team_ids)
+                .select_related("old_league", "new_league")
+                .order_by("team_id", "-created_at")
+            )
+
+            for history in histories:
+                if history.team_id not in team_history_map:
+                    team_history_map[history.team_id] = history
+
+        for f in fixtures:
+            f.home_league_change = team_history_map.get(f.home_id)
+            f.away_league_change = team_history_map.get(f.away_id)
+
+        return fixtures
+

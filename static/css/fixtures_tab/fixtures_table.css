@@ -1,5 +1,11 @@
 
 /*##################### Badge for Promotion / Relegation for each team #########################*/
+.league-change {
+    width: 100px;
+    flex: 0 0 100px;
+}
+
+
 .league-change-badge {
     display: inline-flex;
     align-items: center;

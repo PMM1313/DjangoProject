@@ -134,6 +134,9 @@ class Fixture(models.Model):
     home_score = models.IntegerField(null=True, blank=True)
     away_score = models.IntegerField(null=True, blank=True)
 
+    home_n_play = models.IntegerField(default=0)
+    away_n_play = models.IntegerField(default=0)
+
     season = models.PositiveIntegerField()
 
     sources = models.JSONField(default=dict, blank=True)
@@ -279,6 +282,8 @@ class ArchivedFixture(models.Model):
     is_played = models.BooleanField(null=True, blank=True)
     sources = models.JSONField(default=dict, blank=True)
     archived_at = models.DateTimeField(auto_now_add=True)
+    home_n_play = models.IntegerField(default=0)
+    away_n_play = models.IntegerField(default=0)
 
     class Meta:
         ordering = ['date']

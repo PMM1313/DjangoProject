@@ -4,10 +4,14 @@
     class="fixture-row date-{{ f.league.id }}-{{ f.date|date:'Ymd' }}"
     {#hx-indicator="this"#}
     style="view-transition-name: fixture-row-{{ f.id }};">
+
     <!-- MATCH INFO -->
     <td class="col-match">
+
         <div class="match-container">
+
             <div class="fixture-time">{{ f.date|date:"H:i" }}</div>
+
             <div class="teams-wrap">
 
                 <div class="league-change">
@@ -53,8 +57,10 @@
                     {% endif %}
 
                 </div>
+
             </div>
         </div>
+
     </td>
 
 
