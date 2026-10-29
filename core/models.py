@@ -114,8 +114,8 @@ class Fixture(models.Model):
 
     home_team_profit = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
     away_team_profit = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
-    home_team_plus = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    away_team_plus = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    home_team_plus = models.DecimalField(max_digits=5, decimal_places=2, default='0.00')
+    away_team_plus = models.DecimalField(max_digits=5, decimal_places=2, default='0.00')
 
     # guaranteed plus win
     home_team_gp_plus = models.DecimalField(max_digits=5, decimal_places=3, default='0.000')

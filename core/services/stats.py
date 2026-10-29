@@ -1,8 +1,9 @@
 from datetime import date, datetime, timedelta, time
-from django.db.models import F, Sum, DecimalField, Q, Count
+from django.db.models import F, Sum, DecimalField, Q, Count, Avg
 from django.db.models.functions import TruncWeek, TruncMonth, TruncYear, Coalesce
-from ..models import TrackingValue, Fixture, Team, ArchivedFixture
+from ..models import TrackingValue, Fixture, Team, ArchivedFixture, RecoverFixture
 from django.utils import timezone
+
 
 from decimal import Decimal
 from django.db import transaction
@@ -84,62 +85,50 @@ class TrackingValues:
         oldest_monday = current_monday - timedelta(weeks=weeks_count - 1)
         newest_sunday = current_monday + timedelta(days=6)
 
-        # Query 1: TrackingValues bulk stats
-        weekly_stats_qs = (
-            TrackingValue.objects.filter(
-                date__range=[oldest_monday, newest_sunday]
-            )
-            .annotate(week=TruncWeek('date'))
-            .values('week')
-            .annotate(
-                bets=Coalesce(
-                    Sum('amount', filter=Q(category='BET')),
-                    Decimal('0.00'),
-                    output_field=DecimalField(),
-                ),
-                profit=Coalesce(
-                    Sum('amount', filter=Q(category='PROFIT')),
-                    Decimal('0.00'),
-                    output_field=DecimalField(),
-                ),
-                plus_earned=Coalesce(
-                    Sum('amount', filter=Q(category='PLUS_EARNED')),
-                    Decimal('0.00'),
-                    output_field=DecimalField(),
-                ),
-                plus_used=Coalesce(
-                    Sum('amount', filter=Q(category='PLUS_USED')),
-                    Decimal('0.00'),
-                    output_field=DecimalField(),
-                ),
-                all_bets_start=Coalesce(
-                    Sum('amount', filter=Q(category='ALL_BETS_SNAPSHOT_START')),
-                    None,
-                    output_field=DecimalField(),
-                ),
-                all_bets_end=Coalesce(
-                    Sum('amount', filter=Q(category='ALL_BETS_SNAPSHOT_END')),
-                    None,
-                    output_field=DecimalField(),
-                ),
-            )
-        )
+        # Query 1: TrackingValue bulk stats from Trackingvalue table
+        # Fetches BET, PROFIT, PLUS_EARNED, PLUS_USED, ALL_BETS_SNAPSHOT_START, ALL_BETS_SNAPSHOT_END
+        weekly_stats_qs = TrackingValues.get_bulk_from_trackingvalues_table(oldest_monday, newest_sunday)
 
-        aggregated_by_week = {
-            (item['week'].date() if hasattr(item['week'], 'date') else item['week']): item
-            for item in weekly_stats_qs
-        }
-
-        # Queries 2 & 3: Bulk fixture draw stats
+        # Queries 2 & 3: Bulk fixture draw stats from Fixture and ArhivedFixture tables
         bulk_draw_stats = TrackingValues.get_bulk_weekly_draw_stats(oldest_monday, newest_sunday)
 
+        # get avg coefs for the weeks from Fixture and ArhivedFixture tables
+        bulk_avg_coefs = TrackingValues.get_bulk_weekly_avg_coefficient(oldest_monday, newest_sunday)
+
+        # get plus earned from the fixture itself. doesn't account used plus
+        bulk_plus_used = TrackingValues.get_bulk_weekly_plus_earned(oldest_monday, newest_sunday)
+
+        # get guaranteed plus winnings from Fixture and ArhivedFixture
+        bulk_gp_plus = TrackingValues.get_bulk_weekly_gp_plus_draws(oldest_monday, newest_sunday)
+
+        # get all normal past bets for all Teams from Team table
         current_total_all_bets = Team.get_total_all_bets()
+
+        # get plus used for the current week from recoverfixture table
+        bulk_plus_used = TrackingValues.get_bulk_plus_used(oldest_monday, newest_sunday)
+
+        # result returned used for context for the table in the UI
         results = []
 
         # 2. Assemble in chronological order (oldest -> newest)
-        for start_date, week_info in reversed(list(weeks_map.items())):
-            stats = aggregated_by_week.get(start_date, {})
+        for start_date, week_info in reversed(weeks_map.items()):
+
+            stats = weekly_stats_qs.get(start_date, {})
+
             draw_info = bulk_draw_stats.get(start_date, {'played': 0, 'draws': 0})
+
+            # get avg coef for the week with the start day key
+            avg_coefficient = bulk_avg_coefs.get(start_date, Decimal('0.00'))
+
+            # plus earned for the week (without plus used into account)
+            plus_earned = bulk_plus_used.get(start_date, Decimal('0.00'))
+
+            # guaranteed plus winnings for the week
+            total_gp_plus = bulk_gp_plus.get(start_date, Decimal('0.000'))
+
+            # plus used for the week including manual plus taken from each
+            # recoverfixture entry
+            plus_used = bulk_plus_used.get(start_date, Decimal('0.00'))
 
             fixtures_played = draw_info['played']
             draws = draw_info['draws']
@@ -187,8 +176,10 @@ class TrackingValues:
                     'bets': bets_val,
                     'profit': profit_val,
                     'profit_percent': f"{profit_percent}%",
-                    'plus_earned': stats.get('plus_earned', Decimal('0.00')),
-                    'plus_for_recover': 'Not calculated',
+                    'plus_earned': plus_earned,
+                    'plus_for_recover': plus_used,
+                    'avg_coefficient': avg_coefficient,
+                    'total_gp_plus': total_gp_plus,
                 }
             )
 
@@ -309,11 +300,8 @@ class TrackingValues:
 
     @staticmethod
     @transaction.atomic
-    def update_no_draw_brackets(
-            teams_with_bets,
-            is_draw,
-            snapshot_date,
-    ):
+    def update_no_draw_brackets(teams_with_bets, is_draw, snapshot_date):
+
         for team, current_bet in teams_with_bets:
 
             if team is None:
@@ -364,6 +352,288 @@ class TrackingValues:
                     f"ND_BETS_{bracket}",
                     -team.all_bets,
                 )
+
+    @staticmethod
+    def get_bulk_weekly_avg_coefficient(oldest_monday, newest_sunday):
+        """
+        Calculates the average coefficient for played fixtures across both
+        Fixture and ArchivedFixture models, grouped by week within the date range.
+        Ensures all weeks in the range are represented.
+        """
+        date_range = [oldest_monday, newest_sunday + timedelta(days=1)]
+
+        def get_week_key(item):
+            w = item['week']
+            return w.date() if hasattr(w, 'date') else w
+
+        combined_stats = {}
+
+        # 1. Aggregate from active Fixtures
+        fixture_stats = (
+            Fixture.objects.filter(
+                date__range=date_range,
+                is_played=True,
+                coefficient__isnull=False
+            )
+            .annotate(week=TruncWeek('date'))
+            .values('week')
+            .annotate(
+                total_coef=Sum('coefficient'),
+                count_coef=Count('coefficient')
+            )
+        )
+        for item in fixture_stats:
+            week_key = get_week_key(item)
+            combined_stats[week_key] = {
+                'total': item['total_coef'] or Decimal('0.00'),
+                'count': item['count_coef'] or 0
+            }
+
+        # 2. Aggregate from ArchivedFixtures and merge
+        archived_stats = (
+            ArchivedFixture.objects.filter(
+                date__range=date_range,
+                is_played=True,
+                coefficient__isnull=False
+            )
+            .annotate(week=TruncWeek('date'))
+            .values('week')
+            .annotate(
+                total_coef=Sum('coefficient'),
+                count_coef=Count('coefficient')
+            )
+        )
+        for item in archived_stats:
+            week_key = get_week_key(item)
+            if week_key in combined_stats:
+                combined_stats[week_key]['total'] += item['total_coef'] or Decimal('0.00')
+                combined_stats[week_key]['count'] += item['count_coef'] or 0
+            else:
+                combined_stats[week_key] = {
+                    'total': item['total_coef'] or Decimal('0.00'),
+                    'count': item['count_coef'] or 0
+                }
+
+        # 3. Build a complete dictionary for every week from oldest_monday to newest_sunday
+        result = {}
+        curr = oldest_monday
+        while curr <= newest_sunday:
+            data = combined_stats.get(curr)
+            if data and data['count'] > 0:
+                avg_val = data['total'] / Decimal(data['count'])
+                result[curr] = round(avg_val, 2)
+            else:
+                result[curr] = Decimal('0.00')
+            curr += timedelta(weeks=1)
+
+        return result
+
+    @staticmethod
+    def get_bulk_from_trackingvalues_table(oldest_monday, newest_sunday):
+        """
+        Returns a dictionary mapping each week's start date to its aggregated stats:
+        {
+            datetime.date(2026, 10, 19): {
+                'week': datetime.date(2026, 10, 19),
+                'bets': Decimal('150.00'),
+                'profit': Decimal('25.50'),
+                'plus_earned': Decimal('5.00'),
+                # ... other fields ...
+            },
+            datetime.date(2026, 10, 12): {
+                'week': datetime.date(2026, 10, 12),
+                'bets': Decimal('200.00'),
+                'profit': Decimal('-10.00'),
+                # ...
+            }
+        }
+        """
+        weekly_stats_qs = (
+            TrackingValue.objects.filter(
+                date__range=[oldest_monday, newest_sunday]
+            )
+            .annotate(week=TruncWeek('date'))
+            .values('week')
+            .annotate(
+                bets=Coalesce(
+                    Sum('amount', filter=Q(category='BET')),
+                    Decimal('0.00'),
+                    output_field=DecimalField(),
+                ),
+                profit=Coalesce(
+                    Sum('amount', filter=Q(category='PROFIT')),
+                    Decimal('0.00'),
+                    output_field=DecimalField(),
+                ),
+                plus_earned=Coalesce(
+                    Sum('amount', filter=Q(category='PLUS_EARNED')),
+                    Decimal('0.00'),
+                    output_field=DecimalField(),
+                ),
+                plus_used=Coalesce(
+                    Sum('amount', filter=Q(category='PLUS_USED')),
+                    Decimal('0.00'),
+                    output_field=DecimalField(),
+                ),
+                all_bets_start=Coalesce(
+                    Sum('amount', filter=Q(category='ALL_BETS_SNAPSHOT_START')),
+                    None,
+                    output_field=DecimalField(),
+                ),
+                all_bets_end=Coalesce(
+                    Sum('amount', filter=Q(category='ALL_BETS_SNAPSHOT_END')),
+                    None,
+                    output_field=DecimalField(),
+                ),
+            )
+        )
+
+        aggregated_by_week = {
+            (item['week'].date() if hasattr(item['week'], 'date') else item['week']): item
+            for item in weekly_stats_qs
+        }
+
+        return aggregated_by_week
+
+    @staticmethod
+    def get_bulk_weekly_gp_plus_draws(oldest_monday, newest_sunday):
+        """
+        Calculates the sum of home_team_gp_plus + away_team_gp_plus for
+        fixtures where status='Match Finished', is_played=True, and is_draw=True,
+        across both models, grouped by week.
+        """
+        date_range = [oldest_monday, newest_sunday + timedelta(days=1)]
+
+        def get_week_key(item):
+            w = item['week']
+            return w.date() if hasattr(w, 'date') else w
+
+        combined_stats = {}
+
+        # Helper to aggregate GP plus data
+        def process_gp(qs_class):
+            stats = (
+                qs_class.objects.filter(
+                    date__range=date_range,
+                    is_played=True,
+                    status='Match Finished',
+                    home_score__isnull=False,
+                    away_score__isnull=False,
+                    home_score=F('away_score')
+                )
+                .annotate(week=TruncWeek('date'))
+                .values('week')
+                .annotate(
+                    gp_plus_sum=Sum(F('home_team_gp_plus') + F('away_team_gp_plus'))
+                )
+            )
+            for item in stats:
+                week_key = get_week_key(item)
+                combined_stats[week_key] = combined_stats.get(week_key, Decimal('0.00')) + (
+                            item['gp_plus_sum'] or Decimal('0.00'))
+
+        process_gp(Fixture)
+        process_gp(ArchivedFixture)
+
+        # Build complete dictionary for all weeks in range
+        result = {}
+        curr = oldest_monday
+        while curr <= newest_sunday:
+            total_gp = combined_stats.get(curr, Decimal('0.00'))
+            result[curr] = round(total_gp, 3)
+            curr += timedelta(weeks=1)
+
+        return result
+
+    @staticmethod
+    def get_bulk_weekly_plus_earned(oldest_monday, newest_sunday):
+        """
+        Calculates the sum of home_team_plus + away_team_plus for
+        fixtures where status='Match Finished', is_played=True, and is_draw=True,
+        across both models, grouped by week.
+        """
+        date_range = [oldest_monday, newest_sunday + timedelta(days=1)]
+
+        def get_week_key(item):
+            w = item['week']
+            return w.date() if hasattr(w, 'date') else w
+
+        combined_stats = {}
+
+        # Helper to aggregate GP plus data
+        def process_gp(qs_class):
+            stats = (
+                qs_class.objects.filter(
+                    date__range=date_range,
+                    is_played=True,
+                    status='Match Finished',
+                    home_score__isnull=False,
+                    away_score__isnull=False,
+                    home_score=F('away_score')
+                )
+                .annotate(week=TruncWeek('date'))
+                .values('week')
+                .annotate(
+                    plus_earned=Sum(F('home_team_plus') + F('away_team_plus'))
+                )
+            )
+            for item in stats:
+                week_key = get_week_key(item)
+                combined_stats[week_key] = (combined_stats.get(week_key, Decimal('0.00'))
+                                            + (item['plus_earned'] or Decimal('0.00')))
+
+        process_gp(Fixture)
+        process_gp(ArchivedFixture)
+
+        # Build complete dictionary for all weeks in range
+        result = {}
+        curr = oldest_monday
+        while curr <= newest_sunday:
+            total_gp = combined_stats.get(curr, Decimal('0.00'))
+            result[curr] = total_gp
+            curr += timedelta(weeks=1)
+
+        return result
+
+    @staticmethod
+    def get_bulk_plus_used(oldest_monday, newest_sunday):
+        """
+        Calculates the sum of plus_used + manual_plus_used for every
+        recoverfixture entry grouped by week.
+        """
+        date_range = [oldest_monday, newest_sunday + timedelta(days=1)]
+
+        def get_week_key(item):
+            w = item['week']
+            return w.date() if hasattr(w, 'date') else w
+
+        combined_stats = {}
+
+        # Helper to aggregate GP plus data
+        def process_plus_used(qs_class):
+
+            stats = (
+                qs_class.objects.filter(date__range=date_range, value_type__in=['plus', 'manual_plus'])
+                .annotate(week=TruncWeek('date'))
+                .values('week')
+                .annotate(plus_used=Sum('value')))
+
+            for item in stats:
+                week_key = get_week_key(item)
+                combined_stats[week_key] = (combined_stats.get(week_key, Decimal('0.00'))
+                                            + (item['plus_used'] or Decimal('0.00')))
+
+        process_plus_used(RecoverFixture)
+
+        # Build complete dictionary for all weeks in range
+        result = {}
+        curr = oldest_monday
+        while curr <= newest_sunday:
+            plus_used = combined_stats.get(curr, Decimal('0.00'))
+            result[curr] = plus_used
+            curr += timedelta(weeks=1)
+
+        return result
 
 
 

@@ -69,9 +69,11 @@
                         <th style="padding: 8px;">Draw</th>
                         <th style="padding: 8px;">Draw Percent</th>
                         <th style="padding: 8px;">Bets Made</th>
+                        <th style="padding: 8px;">Avg.Coef</th>
                         <th style="padding: 8px;">Profit</th>
                         <th style="padding: 8px;">Profit Percent</th>
                         <th style="padding: 8px;">Plus Earned</th>
+                        <th style="padding: 8px;">Plus GP</th>
                         <th style="padding: 8px;">Plus Used For Recover</th>
                     </tr>
                 </thead>
@@ -86,9 +88,11 @@
                         <td style="padding: 10px; white-space: nowrap;">{{ row.draw }}</td>
                         <td style="padding: 10px; white-space: nowrap;">{{ row.draw_percent }}</td>
                         <td style="padding: 10px; white-space: nowrap;">{{ row.bets }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.avg_coefficient }}</td>
                         <td style="padding: 10px; white-space: nowrap;">{{ row.profit }}</td>
                         <td style="padding: 10px; white-space: nowrap;">{{ row.profit_percent }}</td>
                         <td style="padding: 10px; white-space: nowrap;">{{ row.plus_earned }}</td>
+                        <td style="padding: 10px; white-space: nowrap;">{{ row.total_gp_plus }}</td>
                         <td style="padding: 10px; white-space: nowrap;">{{ row.plus_for_recover }}</td>
                     </tr>
                     {% empty %}
@@ -182,13 +186,15 @@
 
         <div style="display: flex; gap: 20px; align-items: stretch; flex-wrap: wrap; margin-bottom: 0px;">
 
-            <form
+            <div style="display: flex; min-width: 150px; gap: 20px; padding: 20px; background: #f9f9f9; border-radius: 8px; border: 1px solid #ddd; margin: 0;">
+
+                <form
                 method="post"
                 data-hx-post="{% url 'fetch-and-save-fixtures' %}"
                 data-hx-target="#fixture-container"
                 data-hx-swap="innerHTML"
-                style="flex: 1; min-width: 150px; padding: 20px; background: #f9f9f9; border-radius: 8px; border: 1px solid #ddd; margin: 0;"
-            >
+                data-hx-indicator="#sync-range-btn">
+
                 {% csrf_token %}
                 <h4 style="margin-top: 0;">Sync Fixtures by Range</h4>
 
@@ -203,27 +209,32 @@
                         <input type="date" name="date_to" value="{{ date_to }}" required style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
                     </div>
 
-                    <button type="submit"
+                    <button id="sync-range-btn"
+                            type="submit"
                             name="fetch_range"
                             value="1"
-                            hx-indicator="this"
-                            class="btn-sync-range">
-                        <span class="sync-loader">⏳</span>
+                            data-hx-indicator="this"
+                            class="btn btn-loading sync-range">
                         <span>Get Fixtures !</span>
                     </button>
-
-                    <button type="button"
-                            class="fetch_scores_and_statuses"
-                            data-hx-get="{% url 'fetch_scores_and_statuses' %}"
-                            data-hx-target="#fixture-container"
-                            data-hx-indicator="this">
-                        <span class="btn-text">Fetch results</span>
-                    </button>
-
                 </div>
-            </form>
 
-            <div style="flex: 1; min-width: 150px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid #ddd; border-radius: 8px; background: #fff; padding: 0px;">
+                </form>
+
+                <div class="actions" style="display: flex; align-items: flex-end;">
+
+                <button type="button"
+                    class="btn btn-loading fetch_scores_and_statuses"
+                    data-hx-get="{% url 'fetch_scores_and_statuses' %}"
+                    data-hx-target="#fixture-container"
+                    data-hx-indicator="this">
+                <span class="btn-text">Fetch results</span>
+                </button>
+            </div>
+
+            </div>
+
+            <div style="min-width: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid #ddd; border-radius: 8px; background: #fff; padding: 0px;">
 
                 <button class="btn-db-sync"
                         data-hx-get="{% url 'fixtures_partial' %}"

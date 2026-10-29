@@ -1,6 +1,8 @@
 <td class="col-action" id="action-container-{{ f.fixture_id }}" xmlns:hx-on="http://www.w3.org/1999/xhtml">
     <div class="action-container shimmer-target" id="action-shimmer-{{ f.fixture_id }}">
+
         {% if f.status == "Match Finished" %}
+
             {% if f.is_played %}
 
                 {% if f.home_score == None or f.away_score == None %}
@@ -32,11 +34,13 @@
                 <span class="status-generic">FINISHED NOT PLAYED</span>
             {% endif %}
 
-        {% elif f.status == "Match Abandoned" %}
-            <span class="status-match-played">ABANDONED</span>
+{#        {% elif f.status == "Match Abandoned" %}#}
+{#            <span class="status-match-played">ABANDONED</span>#}
 
         {% elif f.is_played %}
             <span class="status-match-played">MATCH PLAYED</span>
+
+            <span class="status-generic"> Status: {{ f.status }}</span>
 
 
         {% else %}
@@ -46,9 +50,6 @@
                     id="play-btn-{{ f.fixture_id }}"
                     disabled
                     hx-post="{% url 'play_match' f.fixture_id %}"
-{#                    hx-indicator="#odds-shimmer-{{ f.id }},#}
-{#                                  #action-shimmer-{{ f.id }},#}
-{#                                  #bet-shimmer-{{ f.id }}"#}
                     hx-target="#fixture-row-{{ f.fixture_id }}"
                     hx-swap="outerHTML transition:true"
                     hx-on::before-request="this.closest('tr').classList.add('row-loading')"

@@ -5,9 +5,10 @@
                 <th style="padding: 12px; border-bottom: 2px solid #ddd;" onclick="sortTable(0)">Name ↕</th>
                 <th style="padding: 12px; border-bottom: 2px solid #ddd;" onclick="sortTable(1)">League/Country ↕</th>
                 <th style="padding: 12px; border-bottom: 2px solid #ddd;" onclick="sortTable(2)">All Bets ↕</th>
-                <th style="padding: 12px; border-bottom: 2px solid #ddd;" onclick="sortTable(3)">No Draw ↕</th>
-                <th style="padding: 12px; border-bottom: 2px solid #ddd;" onclick="sortTable(4)">Last Played ↕</th>
-                <th style="padding: 12px; border-bottom: 2px solid #ddd;" onclick="sortTable(5)">Status ↕</th>
+                <th style="padding: 12px; border-bottom: 2px solid #ddd;">GP Bets</th>
+                <th style="padding: 12px; border-bottom: 2px solid #ddd;" onclick="sortTable(4)">No Draw ↕</th>
+                <th style="padding: 12px; border-bottom: 2px solid #ddd;" onclick="sortTable(5)">Last Played ↕</th>
+                <th style="padding: 12px; border-bottom: 2px solid #ddd;" onclick="sortTable(6)">Status ↕</th>
                 <th style="padding: 12px; border-bottom: 2px solid #ddd;">Options</th>
             </tr>
         </thead>
@@ -16,16 +17,19 @@
         <tbody class="team-group">
             <tr class="main-row" style="border-bottom: 1px solid #eee;">
                 <td style="padding: 10px;"><strong>{{ team.name }}</strong></td>
+
                 <td style="padding: 10px; font-size: 0.85em; color: #666;">
                     {{ team.league.name }} <br> ({{ team.country.name }})
                 </td>
+
                 <td style="padding: 10px; vertical-align: middle;">
                     <div style="display: inline-flex; align-items: center; gap: 6px; font-family: monospace;">
 
                         <!-- Simulated Bet Badge -->
-                        <span style="display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 300; font-size: 0.85rem; min-width: 70px"
+                        <span style="display: inline-flex; align-items: center; justify-content: space-between; background-color: #e0f2fe; color: #0369a1; padding: 5px 8px; border-radius: 6px; font-weight: 300; font-size: 0.85rem; min-width: 75px"
                               title="Simulated Expected Bets">
-                            🎯 {{ team.simulated_bets|default:"0.00" }}
+                            <span style="line-height: 1;">🎯</span>
+                            <span>{{ team.simulated_bets|default:"0.00" }}</span>
                         </span>
 
                         <span style="color: #94a3b8; font-weight: 600;">/</span>
@@ -56,6 +60,15 @@
 
                     </div>
                 </td>
+
+                <!-- GP Bets -->
+                <td style="padding: 10px; vertical-align: middle; font-family: monospace;">
+                    <span style="background-color: #fdf4ff; color: #86198f; border: 1px solid #f5d0fe; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 0.85rem;"
+                          title="Guaranteed Plus Bets">
+                        {{ team.gp_all_bets|default:"0.00" }}
+                    </span>
+                </td>
+
                 <td style="padding: 10px;">{{ team.no_draw|default:"0" }}</td>
                 <td style="padding: 10px;" data-value="{{ team.last_played_date|date:'Y-m-d' }}">
                     {{ team.last_played_date|date:"d.m.Y"|default:"-" }}
@@ -100,7 +113,7 @@
 
             {#  Here goes the fixture history of the team (fixture_list.html)  #}
             <tr id="details-{{ team.id }}" class="details-row" style="display: none;">
-                <td colspan="7">
+                <td colspan="8">
                     <div id="content-{{ team.id }}" style="padding: 15px;">
                         <div class="spinner-container">
                             <div class="spinner"></div>
@@ -112,7 +125,7 @@
         </tbody>
         {% empty %}
         <tr>
-            <td colspan="5" style="padding: 20px; text-align: center;">No teams found in database.</td>
+            <td colspan="6" style="padding: 20px; text-align: center;">No teams found in database.</td>
         </tr>
         {% endfor %}
     </table>
