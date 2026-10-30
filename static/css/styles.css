@@ -1,4 +1,8 @@
 /* static/css/styles.css */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
 body {
     background-color: #0c5e4a57; /* Replace with your color hex or name */
     margin: 0;

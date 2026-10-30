@@ -1,11 +1,11 @@
-<td class="col-action" id="action-container-{{ f.fixture_id }}" xmlns:hx-on="http://www.w3.org/1999/xhtml">
+<td class="col-action" id="action-container-{{ f.fixture_id }}">
     <div class="action-container shimmer-target" id="action-shimmer-{{ f.fixture_id }}">
 
         {% if f.status == "Match Finished" %}
 
             {% if f.is_played %}
 
-                {% if f.home_score == None or f.away_score == None %}
+                {% if f.home_score is None or f.away_score is None %}
                     <span class="draw-indicator no-result">No Result</span>
                 {% elif f.is_draw %}
                     <span class="draw-indicator is-draw">Draw</span>
@@ -58,14 +58,26 @@
             </button>
         {% endif %}
 
-        <button class="kebab-trigger" onclick="toggleKebabMenu(event, '{{ f.fixture_id}}')">
+        <button type="button"
+                class="kebab-trigger"
+                aria-label="Open actions menu"
+                popovertarget="menu-{{ f.fixture_id }}">
             <i class="fas fa-ellipsis-v"></i>
         </button>
 
     </div>
 
-    <div id="menu-{{ f.fixture_id }}" class="kebab-dropdown" style="display: none;">
-        <a href="#" >Second Job for {{ f.home_team_name }} and {{ f.away_team_name }}</a>
-        <a href="#" class="text-danger">Delete Team</a>
+    <div id="menu-{{ f.fixture_id }}" popover class="menu-list">
+        <button type="button"
+                popovertarget="menu-{{ f.fixture_id }}"
+                popovertargetaction="hide">
+            Second Job for {{ f.home_team_name }} and {{ f.away_team_name }}
+        </button>
+        <button type="button"
+                class="text-danger"
+                popovertarget="menu-{{ f.fixture_id }}"
+                popovertargetaction="hide">
+            Delete Team
+        </button>
     </div>
 </td>

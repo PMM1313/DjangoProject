@@ -91,11 +91,13 @@
 /* ===== Column Widths ===== */
 .col-country  { width: 12%; }
 .col-league   { width: 18%; }
+
+/* ===== Actual fixture row ===== */
 .col-match    { width: 40%; font-weight: 600; } /* Increased this */
 .col-odds     { width: 4%; }
 .col-action   { width: 17%; }
 .col-bet      { width: 5%; }
-.col-settings { width: 2%; }  /* Made this much smaller */
+.col-settings { width: 3%; }  /* Made this much smaller */
 
 /* ===== Country Group Row ===== */
 .country-row td {

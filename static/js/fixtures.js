@@ -269,28 +269,21 @@ function showLoader(targetId, message = "Loading...") {
 }
 
 // for the menu in action cell after the Play/Resolve button
-function toggleKebabMenu(event, id) {
-    // Prevent the click from bubbling up
-    event.stopPropagation();
+// Position the menu under its button, right-aligned, just before it opens
+document.addEventListener('beforetoggle', e => {
+    if (!e.target.matches('.menu-list') || e.newState !== 'open') return;
 
-    // Close any other open menus first
-    document.querySelectorAll('.kebab-dropdown').forEach(menu => {
-        if (menu.id !== 'menu-' + id) menu.style.display = 'none';
-    });
+    const btn = document.querySelector(`[popovertarget="${e.target.id}"]`);
+    const r = btn.getBoundingClientRect();
 
-    // Toggle the clicked menu
-    const menu = document.getElementById('menu-' + id);
-    menu.style.display = (menu.style.display === 'none') ? 'block' : 'none';
-}
+    e.target.style.top = r.bottom + 4 + 'px';
+    e.target.style.right = document.documentElement.clientWidth - r.right + 'px';
+}, true);
 
-// Close menus if user clicks anywhere else on the page
-window.onclick = function(event) {
-    if (!event.target.matches('.kebab-trigger') && !event.target.matches('.fa-ellipsis-v')) {
-        document.querySelectorAll('.kebab-dropdown').forEach(menu => {
-            menu.style.display = 'none';
-        });
-    }
-}
+// Close open menus when anything scrolls, so they don't float in the wrong place
+document.addEventListener('scroll', () => {
+    document.querySelectorAll('.menu-list:popover-open').forEach(m => m.hidePopover());
+}, true);
 
 
 

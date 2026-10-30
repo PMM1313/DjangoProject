@@ -1,16 +1,15 @@
 .action-container {
     position: relative;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
+    display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     min-height: 45px; /* Matches the height of your Play button */
     width: 100%;
     height: 100%;
     overflow: hidden; /* This is the most important line for the scanline */
-    margin: 0;
     gap: 5px;
-    /*padding: 0 !important;*/
+    box-sizing: border-box;
+    padding: 0 5px;
 }
 
 .status-match-played {
@@ -161,49 +160,51 @@
 }
 
 /*#################################################################*/
+/*kebab menu*/
 /*the tree dot menu in the action cell*/
 /* The Three Dots Button */
 .col-action .kebab-trigger {
-    margin-right: 5px;
-    grid-column: 3;
-    justify-self: end;
+    padding: 6px 6px;
+    border-radius: 4px;
+    border: none;
+    background: #0d6efd;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+/* Optional hover effect for your custom style */
+.col-action .kebab-trigger:hover {
+    background: #0b5ed7;
+}
+
+.menu-list {
+    position: fixed;
+    inset: auto;            /* clears the popover default of inset: 0 */
+    margin: 0;
+    padding: 0;
+    min-width: 130px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.menu-list button {
+    display: block;
+    width: 100%;
+    padding: 10px 15px;
     background: none;
     border: none;
-    padding: 5px 5px;
-    cursor: pointer;
-    color: #666;
-    user-select: none;
-    -webkit-user-select: none;
-}
-
-.kebab-trigger:hover { color: #000; }
-
-/* The Actual Pop-up Menu */
-.kebab-dropdown {
-    position: absolute;
-    top: 40px;
-    right: 5px;
-    background-color: #ffffff;
-    border: 1px solid #ddd;
-    box-shadow: 0px 4px 8px rgba(0,0,0,0.1);
-    z-index: 9999;
-    min-width: 130px;
-    border-radius: 4px;
-}
-
-.kebab-dropdown a {
-    display: block;
-    padding: 10px 15px;
-    text-decoration: none;
     color: #333;
     font-size: 14px;
     text-align: left;
+    cursor: pointer;
 }
 
-.kebab-dropdown a:hover {
-    background-color: #f8f9fa;
-}
-
+.menu-list button:hover { background: #f8f9fa; }
 .text-danger { color: #dc3545 !important; }
 
 /*#################################################################*/
