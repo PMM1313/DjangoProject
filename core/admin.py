@@ -149,3 +149,30 @@ class ArchivedFixtureAdmin(admin.ModelAdmin):
     @admin.display(description='Score (FT)')
     def score_display(self, obj):
         return f"{obj.home_score} - {obj.away_score}"
+
+
+@admin.register(ForRecover)
+class ForRecoverAdmin(admin.ModelAdmin):
+    # Полетата, които да се показват като колони в списъка с обекти
+    list_display = (
+        'id',
+        'team_name',
+        'bets_writen_off',
+        'gp_bets_writen_off',
+        'bets_recovered',
+        'gp_bets_recovered',
+        'is_recovered',
+        'date_added_to_recover'
+    )
+
+    # Полета, които да бъдат линкове към детайлния изглед за редакция
+    list_display_links = ('id', 'team_name')
+
+    # Филтри в дясната лента на административния панел
+    list_filter = ('is_recovered', 'date_added_to_recover')
+
+    # Полета, по които може да се търси през горната търсачка
+    search_fields = ('team_name', 'team__name')
+
+    # Полета само за четене (ако не искаш да се променят ръчно, например датите)
+    readonly_fields = ('date_added_to_recover', 'date_recovered')

@@ -621,83 +621,103 @@ def get_distribution_partial(request):
 def for_distribution_view(request):
     team_id = request.POST.get("team_id")
     value_str = request.POST.get("for_distribution")
-    gp_bets = request.POST.get('gp_distribution')
+    gp_bets_str = request.POST.get('gp_distribution')
 
-    print(gp_bets)
-    print(type(gp_bets))
-
-    # 1. Validation using your toast_response helper
+    # 1. Validation
     if not team_id:
         return toast_response("Missing team ID.", level="error", status_code=400)
 
     team = get_object_or_404(Team, id=team_id)
 
-    if value_str:
+    # Конвертиране на стойностите предварително за сигурност
+    value_to_add = Decimal('0.00')
+    if value_str and value_str.strip():
         try:
-            value = Decimal(value_str)
+            value_to_add = Decimal(value_str)
+            if value_to_add < 0:
+                return toast_response("Distribution amount cannot be negative.", level="error", status_code=400)
         except (InvalidOperation, TypeError):
-            raise
+            return toast_response("Invalid number format for distribution.", level="error", status_code=400)
 
-        if value > 0:
-            # 2. Business Logic with Transaction
-            try:
-                with transaction.atomic():
-                    current_bets = team.all_bets or Decimal('0.00')
-                    team.all_bets = current_bets - value
-                    team.save()
-
-                    ForRecover.objects.create(
-                        team_id=team.id,
-                        team_name=team.name,
-                        bets_writen_off=value
-                    )
-
-                # 3. Fetch fresh dataset for response
-                recoveries = ForRecover.objects.all().order_by('-date_added_to_recover')
-
-                context = {
-                    "initial_recoveries": recoveries,
-                }
-
-                # 4. Render the table component
-                response = render(request, "partials/_distribution_table.html", context)
-
-                # 5. Add both triggers to HX-Trigger header
-                # - betUpdated updates the team's local Alpine balance in matrix-wrapper
-                # - showToast triggers your JS notification listener
-                response["HX-Trigger"] = json.dumps({
-                    "betUpdated": {
-                        "teamId": team.id,
-                        "amount": float(team.all_bets)
-                    },
-                    "showToast": {
-                        "text": f"Created entry for {team.name} successfully!",
-                        "level": "success"
-                    }
-                })
-
-            except Exception as e:
-                return toast_response(f"Database error: {str(e)}", level="error", status_code=500)
-
-    if gp_bets:
+    gp_bets_to_add = Decimal('0.00')
+    if gp_bets_str and gp_bets_str.strip():
         try:
-            gp_bets = Decimal(gp_bets)
+            gp_bets_to_add = Decimal(gp_bets_str)
+            if gp_bets_to_add < 0:
+                return toast_response("GP bets amount cannot be negative.", level="error", status_code=400)
         except (InvalidOperation, TypeError):
             return toast_response("GP bets have invalid number format.", level="error", status_code=400)
 
-        team.gp_all_bets -= gp_bets
-        team.save()
+    # Проверка дали поне едното е > 0
+    if value_to_add <= 0 and gp_bets_to_add <= 0:
+        return toast_response("Please enter at least one valid amount greater than 0.", level="warning",
+                              status_code=400)
 
-        # update or create recover entry
-        ForRecover.objects.update_or_create(
-            team_id=team.id,
-            team_name=team.name,
-            gp_bets_writen_off=gp_bets
-        )
+    try:
+        with transaction.atomic():
+            # 2. Обновяване на сумите в самия Team обект
+            if value_to_add > 0:
+                current_bets = team.all_bets or Decimal('0.00')
+                team.all_bets = current_bets - value_to_add
 
+            if gp_bets_to_add > 0:
+                current_gp = team.gp_all_bets or Decimal('0.00')
+                team.gp_all_bets = current_gp - gp_bets_to_add
 
-    return toast_response("Test main response.", level="warning", status_code=200)
+            team.save()
 
+            # 3. Създаване или обновяване в ForRecover (Само 1 обект на базата на team_id и критерий по избор)
+            # Тук използваме update_or_create спрямо team_id (или друг критерий, ако искаш да отделяш по статуси)
+            # Ако искаш винаги да обновява последния незавършен запис за този отбор или да прави нов според бизнес логиката:
+
+            # Вариант А: Ако искаш да натрупаш към съществуващ незавършен запис за този отбор:
+            recovery_entry, created = ForRecover.objects.get_or_create(
+                team_id=team.id,
+                is_recovered=False,  # Търси незавършен запис за възстановяване
+                defaults={
+                    "team_name": team.name,
+                    "team": team,
+                    "bets_writen_off": value_to_add,
+                    "gp_bets_writen_off": gp_bets_to_add
+                }
+            )
+
+            if not created:
+                # Ако вече съществува активен запис, прибавяме новите суми към старите
+                if value_to_add > 0:
+                    recovery_entry.bets_writen_off += value_to_add
+                if gp_bets_to_add > 0:
+                    recovery_entry.gp_bets_writen_off += gp_bets_to_add
+                recovery_entry.save()
+
+            # 4. Fetch fresh dataset for response
+            recoveries = ForRecover.objects.all().order_by('-date_added_to_recover')
+
+            context = {
+                "initial_recoveries": recoveries,
+            }
+
+            # 5. Render the table component & construct response triggers
+            response = render(request, "partials/_distribution_table.html", context)
+
+            response["HX-Trigger"] = json.dumps({
+                "betUpdated": {
+                    "teamId": team.id,
+                    "amount": float(team.all_bets),
+                    "gpAmount": float(team.gp_all_bets)  # Полезно е да се върне и GP сумата ако я слуша Alpine
+                },
+                "showToast": {
+                    "text": f"Successfully updated distribution for {team.name}!",
+                    "level": "success"
+                }
+            })
+
+            return response
+
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return toast_response(f"Database error: {str(e)}", level="error", status_code=500)
 
 @login_required
 @require_POST
