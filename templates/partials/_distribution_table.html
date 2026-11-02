@@ -12,7 +12,9 @@
     <div class="table-header" style="display: flex; background: #f8f9fa; padding: 12px 15px; font-weight: normal; font-size: 0.60rem; color: #4a5568; text-transform: uppercase;">
         <div style="flex: 2;">Team Name</div>
         <div style="flex: 1; text-align: center;">For Recover</div>
+        <div style="flex: 1; text-align: center;">GP For Recover</div>
         <div style="flex: 1; text-align: center;">Recovered</div>
+        <div style="flex: 1; text-align: center;">GP Recovered</div>
         <div style="flex: 1; text-align: center;">Manual Plus</div>
         <div style="flex: 1; text-align: center;">Remaining</div>
         <div style="flex: 1; text-align: center;">Fixtures Played</div>
@@ -41,7 +43,23 @@
 
                 <input type="hidden" name="item_id" id="modal-item-id" :value="selectedId">
 
-                <input type="number" step="0.01" name="amount" required autofocus style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 15px;">
+                <!-- Първо поле: All Bets -->
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 5px;">
+                        All Bets:
+                    </label>
+                    <input type="number" step="0.01" name="amount" required autofocus
+                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box;">
+                </div>
+
+                <!-- Второ поле: GP Bets -->
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #86198f; margin-bottom: 5px;">
+                        GP Bets:
+                    </label>
+                    <input type="number" step="0.01" name="gp_bets" required
+                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box;">
+                </div>
 
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
                     <button type="button" @click="modalOpen = false" style="padding: 8px 15px; background: #eee; border: none; border-radius: 6px;">Cancel</button>

@@ -81,6 +81,13 @@
     .team-list.show { display: flex; }
 
     /* Team Card (Full Width Row) */
+    /* ADD: Wraps the original top row contents */
+    .team-row-main {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+    }
     .team-row-card {
         cursor: pointer;
         background: white;
@@ -88,13 +95,10 @@
         margin-bottom: 8px;
         padding: 15px;
         display: flex;
-        {#justify-content: space-between;#}
-        {#align-items: flex-start;#}
+        flex-direction: column; /* CHANGED: Stacks main info and drawer vertically */
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         border-radius: 10px;
-        justify-content: center; /* Horizontal centering */
-        align-items: center;     /* Vertical centering */
-        transition: all 0.2s ease-in-out; /* Smooths the transition */
+        transition: all 0.2s ease-in-out;
     }
 
     /* The Hover State */
@@ -176,6 +180,33 @@
     .match-detail:last-child { border-bottom: none; }
 
     .badge { background: #ebf8ff; color: #2b6cb0; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
+
+    /* ADD: The expanding inline drawer after the selected team */
+    .team-inline-drawer {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #cbd5e0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .inline-form-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .inline-input {
+        outline: none;
+        padding: 6px 10px;
+        border-radius: 4px;
+        border: 1px solid #cbd5e0;
+        width: 9ch;
+    }
 </style>
 
 <div class="matrix-wrapper" id="dist-form"
@@ -183,16 +214,17 @@
     selectedId: null,
     selectedName: '',
     selectedLeague: '',
-    allBets: 0.00,
-    forDistributionInput: '',
+    forDistributionInput: '', /* all normal Bets стейт */
+    gpDistributionInput: '', /* GP Bets стейт */
     /* Create a JS object of all team bets: { 1: 50.00, 2: 12.50 } */
-    teamBets: {
+    teamData: {
             {% for count, team_list in matrix.items %}
                 {% for team in team_list %}
-                    {{ team.id }}: {{ team.all_bets|default:0.00 }},
+                    {{ team.id }}: { all: {{ team.all_bets|default:0.00 }},
+                    gp: {{ team.gp_all_bets|default:0.00 }} },
                 {% endfor %}
             {% endfor %}
-            0: 0
+            0: { all: 0, gp: 0 }
     },
     // This Regex checks for: Optional digits, an optional dot, and more digits
     // Examples: '12', '12.5', '0.75' are valid. '12.' or 'abc' are invalid.
@@ -203,7 +235,10 @@
         if ($event.detail.teamId) {
             const tId = parseInt($event.detail.teamId);
             const newAmt = parseFloat($event.detail.amount);
-            teamBets = { ...teamBets, [tId]: newAmt };
+            // Актуализираме All bets при събитие (ако се променя от някъде)
+            if (teamData[tId]) {
+                teamData[tId].all = newAmt;
+            }
             forDistributionInput = '';
         }
      ">
@@ -232,50 +267,14 @@
 
     <div class="selected-box" style="position: relative;">
         <template x-if="!selectedId">
-            <p>Please select a team to see details.</p>
+            <p>Click any team below to open its distribution panel.</p>
         </template>
-
-{#        <template x-if="selectedId">#}
-        <div x-show="selectedId" class="selected-container">
-            <strong>Selected: </strong>
-            <span>(ID: <span x-text="selectedId"></span>)</span>
-            <span>--- <strong x-text="selectedName"></strong></span>
-            <span>--- <span x-text="selectedLeague"></span></span>
-            <span>--- Current Total: €<span x-text="selectedId ? Number(teamBets[selectedId]).toFixed(2) : '0.00'"></span></span>
-            <span>--- For Distribution:</span>
-            <input type="text"
-                   x-model="forDistributionInput"
-                   placeholder="10.50"
-                   @input="forDistributionInput = forDistributionInput.replace(/[^0-9.]/g, '')"
-                   style="outline: none; padding: 8px; border-radius: 4px; width: 5ch">
-                   {#:style="isValidDecimal(forDistributionInput) ? 'border-color: green' : 'border-color: #cbd5e0'">#}
-
-            <button type="button"
-                    hx-post="{% url 'for_distribution' %}"
-                    hx-target="#distribution-table"
-                    hx-swap="outerHTML"
-                    hx-vals='js:{
-                        "team_id": Alpine.$data(document.getElementById("dist-form")).selectedId,
-                        "for_distribution": Alpine.$data(document.getElementById("dist-form")).forDistributionInput
-                    }'
-                    :disabled="!isValidDecimal(forDistributionInput)"
-                    class="submit-btn">
-                Submit Value
-            </button>
-
-            <!-- Error message moved outside the main flow but inside the container -->
-            <template x-if="forDistributionInput && !isValidDecimal(forDistributionInput)">
-                <div class="error-text">Please enter a valid number (e.g. 10.50).</div>
-            </template>
-
-{#                <div x-show="amount > 0.50" style="color: green; margin-top: 10px;">#}
-{#                    ✅ This is a high-value bet!#}
-{#                </div>#}
-{#                <div x-show="amount <= 0.50" style="color: gray;">#}
-{#                    ℹ️ Standard bet amount.#}
-{#                </div>#}
+        <div x-show="selectedId" class="selected-container" style="font-size: 0.9rem;">
+            <span>Active: <strong x-text="selectedName"></strong> (<span x-text="selectedLeague"></span>) ---
+                Total: €<span x-text="selectedId ? Number(teamData[selectedId].all).toFixed(2) : '0.00'"></span>
+                (GP: €<span x-text="selectedId ? Number(teamData[selectedId].gp).toFixed(2) : '0.00'"></span>)
+            </span>
         </div>
-{#        </template>#}
     </div>
 
     <h2>Streaks table</h2>
@@ -291,7 +290,9 @@
         </div>
 
         <div class="team-list">
+
             {% for team in teams %}
+
             <div class="team-row-card"
                  :class="selectedId == {{ team.id }} ? 'is-selected' : ''"
                  @click="
@@ -299,38 +300,95 @@
                  selectedName = '{{ team.name|escapejs }}';
                  selectedLeague = '{{ team.league|escapejs }}';">
 
-                <div class="team-main-info">
-                    <span class="team-name">{{ team.name }}</span>
-                    <span class="bet-amount">
-                        Total: €<span x-text="Number(teamBets[{{ team.id }}]).toFixed(2)"></span>
-                    </span>
-                    <span class="team-country">{{ team.country }}</span>
-                </div>
-
-                <div class="fixture-section">
-                    {% if team.fixtures %}
-                        {% for fx in team.fixtures %}
-                        <div class="fixture-pill {% if fx.is_played %}pending-resolution{% endif %}">
-
-                        <span class="match-detail">
-                            {{ fx.date|date:"M d" }}: {{ fx.home_team_name }} vs {{ fx.away_team_name }}
+                <!-- Main row info (Always visible) -->
+                <div class="team-row-main">
+                    <div class="team-main-info">
+                        <span class="team-name">{{ team.name }}</span>
+                        <span class="bet-amount">
+                            Total: €<span x-text="Number(teamData[{{ team.id }}]?.all || 0).toFixed(2)"></span>
+                            <span style="color: #86198f; margin-left: 6px; font-weight: 500;" title="Guaranteed Plus Bets">
+                                (GP: €<span x-text="Number(teamData[{{ team.id }}]?.gp || 0).toFixed(2)"></span>)
+                            </span>
                         </span>
-                        </div>
-                        {% endfor %}
+                        <span class="team-country">{{ team.country }}</span>
+                    </div>
 
-                    {% else %}
-                    <span style="color: #a0aec0; font-size: 0.85rem;">No fixtures</span>
-                    {% endif %}
+                    <div class="fixture-section">
+                        {% if team.fixtures %}
+                            {% for fx in team.fixtures %}
+                            <div class="fixture-pill {% if fx.is_played %}pending-resolution{% endif %}">
+                            <span class="match-detail">
+                                {{ fx.date|date:"M d" }}: {{ fx.home_team_name }} vs {{ fx.away_team_name }}
+                            </span>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                        <span style="color: #a0aec0; font-size: 0.85rem;">No fixtures</span>
+                        {% endif %}
+                    </div>
                 </div>
+
+                <!-- Inline Expansion Drawer (Revealed only when this specific team is clicked) -->
+                <div class="team-inline-drawer"
+                     x-show="selectedId == {{ team.id }}"
+                     x-transition
+                     @click.stop>
+
+                    <!-- Първо поле: For Distribution (All Bets) -->
+                    <div class="inline-form-group" style="margin-bottom: 8px;">
+                        <span>For Distribution: €</span>
+                        <input type="text"
+                               x-model="forDistributionInput"
+                               placeholder="10.50"
+                               @input="forDistributionInput = forDistributionInput.replace(/[^0-9.]/g, '')"
+                               class="inline-input">
+                    </div>
+
+                    <!-- Второ поле: GP Distribution -->
+                    <div class="inline-form-group" style="margin-bottom: 12px;">
+                        <span>GP Distribution: €</span>
+                        <input type="text"
+                               x-model="gpDistributionInput"
+                               placeholder="0.00"
+                               @input="gpDistributionInput = gpDistributionInput.replace(/[^0-9.]/g, '')"
+                               class="inline-input">
+                    </div>
+
+                    <!-- Бутон за изпращане и на двете стойности -->
+                    <div>
+                        <button type="button"
+                                hx-post="{% url 'for_distribution' %}"
+                                hx-target="#distribution-table"
+                                hx-swap="outerHTML"
+                                hx-vals='js:{
+                                    "team_id": {{ team.id }},
+                                    "for_distribution": Alpine.$data(document.getElementById("dist-form")).forDistributionInput,
+                                    "gp_distribution": Alpine.$data(document.getElementById("dist-form")).gpDistributionInput
+                                }'
+                                :disabled="!isFormValid()"
+                                class="submit-btn">
+                            Submit Values
+                        </button>
+                    </div>
+
+                    <!-- Error message inside the drawer -->
+                    <template x-if="forDistributionInput && !isValidDecimal(forDistributionInput)">
+                        <div class="error-text">Please enter a valid number (e.g. 10.50).</div>
+                    </template>
+                </div>
+
             </div>
 
             {% empty %}
+
             <div style="padding: 20px; text-align: center; color: #a0aec0;">No teams currently in this level</div>
+
             {% endfor %}
         </div>
-    </div>
     {% endfor %}
+    </div>
 </div>
+
 
 <script>
     function toggleRow(element) {

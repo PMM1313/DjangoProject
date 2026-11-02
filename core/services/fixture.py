@@ -8,7 +8,7 @@ from django.db import transaction, IntegrityError
 from datetime import datetime, timedelta, date
 from django.core.exceptions import ObjectDoesNotExist
 
-from django.db.models import F, Min, Max
+from django.db.models import F, Min, Max, Sum, DecimalField
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -1082,4 +1082,40 @@ class FixtureService:
             f.away_league_change = team_history_map.get(f.away_id)
 
         return fixtures
+
+    @staticmethod
+    def get_total_gp_plus_for_draws():
+        """
+        Сумира home_team_gp_plus и away_team_gp_plus за завършени (is_played=True),
+        приключили (status='Match Finished') мачове, които са завършили наравно (is_draw=True).
+        Забележка: Тъй като is_draw е property в модела, филтрираме по home_score == away_score.
+        """
+        result = Fixture.objects.filter(
+            is_played=True,
+            status='Match Finished',
+            home_score__isnull=False,
+            away_score__isnull=False,
+            home_score=F('away_score')  # Еквивалент на is_draw при базата данни
+        ).aggregate(
+            total_home_gp=Coalesce(Sum('home_team_gp_plus'), Decimal('0.000'), output_field=DecimalField()),
+            total_away_gp=Coalesce(Sum('away_team_gp_plus'), Decimal('0.000'), output_field=DecimalField())
+        )
+
+        return result['total_home_gp'] + result['total_away_gp']
+
+    @staticmethod
+    def get_total_gp_plus_for_draws_from_arh():
+        """
+        Сумира home_team_gp_plus и away_team_gp_plus от архива за завършени наравно мачове.
+        """
+        result = ArchivedFixture.objects.filter(
+            is_played=True,
+            status='Match Finished',
+            is_draw=True
+        ).aggregate(
+            total_home_gp=Coalesce(Sum('home_team_gp_plus'), Decimal('0.000'), output_field=DecimalField()),
+            total_away_gp=Coalesce(Sum('away_team_gp_plus'), Decimal('0.000'), output_field=DecimalField())
+        )
+
+        return result['total_home_gp'] + result['total_away_gp']
 

@@ -386,6 +386,8 @@ class ForRecover(models.Model):
     # team_id = models.IntegerField(db_index=True)  # from API
     team_name = models.CharField(max_length=50)
     bets_writen_off = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    gp_bets_writen_off = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    gp_bets_recovered = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     bets_recovered = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     plus_used_to_recover = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     plus_used_manual = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
@@ -397,10 +399,12 @@ class ForRecover(models.Model):
 
     @property
     def bets_to_recover(self):
-        bets_to_recover = self.bets_writen_off - (self.bets_recovered
+        bets_to_recover = ((self.bets_writen_off + self.gp_bets_writen_off) -
+                                                (self.bets_recovered
                                                   + self.plus_used_to_recover
-                                                  + self.plus_used_manual)
-        if bets_to_recover < Decimal('0.00'):
+                                                  + self.gp_bets_recovered
+                                                  + self.plus_used_manual))
+        if bets_to_recover <= Decimal('0.00'):
             bets_to_recover = Decimal('0.00')
         return bets_to_recover
 
@@ -428,6 +432,7 @@ class RecoverFixture(models.Model):
         ("bet", "Bet"),
         ("plus", "Plus"),
         ("manual_plus", "Manual Plus"),
+        ("gp_bets", "GP bets"),
     )
 
     value_type = models.CharField(max_length=12, choices=VALUE_TYPES)

@@ -117,6 +117,16 @@ def dashboard(request):
     live_bets = Fixture.get_total_live_bets()
     teams_bets = Team.get_total_all_bets()
 
+    #gp_plus
+    total_active = FixtureService.get_total_gp_plus_for_draws()
+    total_archived = FixtureService.get_total_gp_plus_for_draws_from_arh()
+
+    gp_grand_total = total_active + total_archived
+
+    gp_total_recovered = ForRecover.objects.aggregate(total=Coalesce(Sum('gp_bets_recovered'), Decimal('0.00'), output_field=DecimalField()))['total']
+
+    gp_grand_total -= gp_total_recovered   # earned - used
+
     # for the stats table
     stats_table = TrackingValues.get_stats_table_data()
 
@@ -172,6 +182,8 @@ def dashboard(request):
         'league_count': League.objects.filter(is_used=True).count(),
         'fixture_stats': fixture_stats,
         'available_plus': available_plus,
+        'available_gp_plus': gp_grand_total, # gp plus available (earned - used)
+        'used_gp_plus': gp_total_recovered,  # used gp plus
         'live_bets': live_bets,
         'teams_bets': teams_bets,
         'stats_table': stats_table,  # for the weeks stats table
@@ -609,59 +621,82 @@ def get_distribution_partial(request):
 def for_distribution_view(request):
     team_id = request.POST.get("team_id")
     value_str = request.POST.get("for_distribution")
+    gp_bets = request.POST.get('gp_distribution')
+
+    print(gp_bets)
+    print(type(gp_bets))
 
     # 1. Validation using your toast_response helper
-    if not team_id or not value_str:
-        return toast_response("Missing required data.", level="error", status_code=400)
-
-    try:
-        value = Decimal(value_str)
-    except (InvalidOperation, TypeError):
-        return toast_response("Invalid number format.", level="error", status_code=400)
+    if not team_id:
+        return toast_response("Missing team ID.", level="error", status_code=400)
 
     team = get_object_or_404(Team, id=team_id)
 
-    # 2. Business Logic with Transaction
-    try:
-        with transaction.atomic():
-            current_bets = team.all_bets or Decimal('0.00')
-            team.all_bets = current_bets - value
-            team.save()
+    if value_str:
+        try:
+            value = Decimal(value_str)
+        except (InvalidOperation, TypeError):
+            raise
 
-            ForRecover.objects.create(
-                team_id=team.id,
-                team_name=team.name,
-                bets_writen_off=value
-            )
+        if value > 0:
+            # 2. Business Logic with Transaction
+            try:
+                with transaction.atomic():
+                    current_bets = team.all_bets or Decimal('0.00')
+                    team.all_bets = current_bets - value
+                    team.save()
 
-        # 3. Fetch fresh dataset for response
-        recoveries = ForRecover.objects.all().order_by('-date_added_to_recover')
+                    ForRecover.objects.create(
+                        team_id=team.id,
+                        team_name=team.name,
+                        bets_writen_off=value
+                    )
 
-        context = {
-            "initial_recoveries": recoveries,
-        }
+                # 3. Fetch fresh dataset for response
+                recoveries = ForRecover.objects.all().order_by('-date_added_to_recover')
 
-        # 4. Render the table component
-        response = render(request, "partials/_distribution_table.html", context)
+                context = {
+                    "initial_recoveries": recoveries,
+                }
 
-        # 5. Add both triggers to HX-Trigger header
-        # - betUpdated updates the team's local Alpine balance in matrix-wrapper
-        # - showToast triggers your JS notification listener
-        response["HX-Trigger"] = json.dumps({
-            "betUpdated": {
-                "teamId": team.id,
-                "amount": float(team.all_bets)
-            },
-            "showToast": {
-                "text": f"Created entry for {team.name} successfully!",
-                "level": "success"
-            }
-        })
+                # 4. Render the table component
+                response = render(request, "partials/_distribution_table.html", context)
 
-        return response
+                # 5. Add both triggers to HX-Trigger header
+                # - betUpdated updates the team's local Alpine balance in matrix-wrapper
+                # - showToast triggers your JS notification listener
+                response["HX-Trigger"] = json.dumps({
+                    "betUpdated": {
+                        "teamId": team.id,
+                        "amount": float(team.all_bets)
+                    },
+                    "showToast": {
+                        "text": f"Created entry for {team.name} successfully!",
+                        "level": "success"
+                    }
+                })
 
-    except Exception as e:
-        return toast_response(f"Database error: {str(e)}", level="error", status_code=500)
+            except Exception as e:
+                return toast_response(f"Database error: {str(e)}", level="error", status_code=500)
+
+    if gp_bets:
+        try:
+            gp_bets = Decimal(gp_bets)
+        except (InvalidOperation, TypeError):
+            return toast_response("GP bets have invalid number format.", level="error", status_code=400)
+
+        team.gp_all_bets -= gp_bets
+        team.save()
+
+        # update or create recover entry
+        ForRecover.objects.update_or_create(
+            team_id=team.id,
+            team_name=team.name,
+            gp_bets_writen_off=gp_bets
+        )
+
+
+    return toast_response("Test main response.", level="warning", status_code=200)
 
 
 @login_required
@@ -1153,37 +1188,74 @@ def update_recovery_amount(request):
     if request.method == "POST":
         item_id = request.POST.get("item_id")
         amount_str = request.POST.get("amount")
+        gp_bets_str = request.POST.get("gp_bets")
 
         try:
-            amount_to_add = Decimal(amount_str)
-            if amount_to_add <= 0:
-                return toast_response("Please enter an amount greater than 0.", "warning", 400)
+            # Преобразуваме първото поле (amount / manual_plus), ако е подадено
+            amount_to_add = None
+            if amount_str and amount_str.strip():
+                amount_to_add = Decimal(amount_str)
+                if amount_to_add < 0:
+                    return toast_response("Amount cannot be negative.", "warning", 400)
+
+            # Преобразуваме второто поле (gp_bets), ако е подадено
+            gp_bets_to_add = None
+            if gp_bets_str and gp_bets_str.strip():
+                gp_bets_to_add = Decimal(gp_bets_str)
+                if gp_bets_to_add < 0:
+                    return toast_response("GP Bets amount cannot be negative.", "warning", 400)
+
+            # Проверка дали поне едното е въведено и е > 0
+            if (not amount_to_add or amount_to_add <= 0) and (not gp_bets_to_add or gp_bets_to_add <= 0):
+                return toast_response("Please enter at least one valid amount greater than 0.", "warning", 400)
 
             with transaction.atomic():
                 # 1. Get the ForRecover parent record
                 recovery_parent = get_object_or_404(ForRecover, id=item_id)
 
+                success_messages = []
+
                 # 2. Create the RecoverFixture entry (the audit trail)
                 # Note: fixture_id is None here because this is a 'manual_plus' entry
-                RecoverFixture.objects.create(
-                    for_recover=recovery_parent,
-                    team=recovery_parent.team,
-                    value=amount_to_add,
-                    value_type="manual_plus",
-                    fixture_id=None
-                )
 
-                # 3. Update the Parent totals
-                recovery_parent.plus_used_manual += amount_to_add
+                # 2. Обработка на основното amount (manual_plus)
+                if amount_to_add and amount_to_add > 0:
+                    RecoverFixture.objects.create(
+                        for_recover=recovery_parent,
+                        team=recovery_parent.team,
+                        value=amount_to_add,
+                        value_type="manual_plus",
+                        fixture_id=None
+                    )
+
+                    # 3. Update the Parent totals
+                    recovery_parent.plus_used_manual += amount_to_add
+                    recovery_parent.save()
+
+                    TrackingValues.add_entry(amount_to_add, "PLUS_USED")
+                    success_messages.append(f"Manual Recovery: {amount_to_add}")
+
+                # 3. Обработка на новото gp_bets (value_type="gp_bets")
+                if gp_bets_to_add and gp_bets_to_add > 0:
+                    RecoverFixture.objects.create(
+                        for_recover=recovery_parent,
+                        team=recovery_parent.team,
+                        value=gp_bets_to_add,
+                        value_type="gp_bets",
+                        fixture_id=None
+                    )
+                    # Тук можеш да добавиш логика за обновяване на съответното поле в parent модела,
+                    # ако имаш такова (например recovery_parent.gp_bets += gp_bets_to_add)
+                    recovery_parent.gp_bets_recovered += gp_bets_to_add
+                    recovery_parent.save()
+                    success_messages.append(f"GP Bets: {gp_bets_to_add}")
 
                 # Logic: Update status if fully recovered
                 if recovery_parent.bets_to_recover <= 0:
                     recovery_parent.is_recovered = True
                     recovery_parent.date_recovered = timezone.now()
 
-                recovery_parent.save()
 
-                TrackingValues.add_entry(amount_to_add, "PLUS_USED")
 
             # 4. Return fresh data to update the UI table
             # You should call your existing helper that formats ForRecover.objects.all()
