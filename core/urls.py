@@ -37,8 +37,9 @@ urlpatterns = [
 
     # distribution tab
     path('teams/distribution/', views.teams_distribution_view, name='distribution_table'),
-
+    # buttons in distribution tab
     path('equalize-in-range/', views.equalize_in_range, name='equalize_in_range'),
+    path('equalize-in-range-gp-bets/', views.equalize_in_range_gp_bets, name='equalize_in_range_gp_bets'),
 
     # recoveries tab
     path('recoveries-tab/', views.recoveries_tab, name='recoveries_tab'),

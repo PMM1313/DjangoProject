@@ -243,7 +243,8 @@
         }
      ">
 
-    <div class="distribution-options" style="position: relative";>
+    <div class="distribution-options" style="position: relative">
+
         <div class="distribution-table-buttons" style="display: flex;
             flex-direction: row;
             justify-content: flex-start;
@@ -252,13 +253,19 @@
             width: 100%;
             gap: 10px">
 
-            <button class="btn-summary"
+            <button class="btn"
                 hx-post="/equalize-in-range/"
                 hx-swap="none">
-                Equalize in ND range
+                Equalize Bets ND range
             </button>
 
-            <button class="btn-summary">
+            <button class="btn"
+                hx-post="/equalize-in-range-gp-bets/"
+                hx-swap="none">
+                Equalize GP Bets in ND range
+            </button>
+
+            <button class="btn">
                 Equalize vertically
             </button>
 

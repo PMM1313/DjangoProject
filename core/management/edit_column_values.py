@@ -59,7 +59,7 @@ def change_boolean_type():
 
 
 def test_equalizing_bets():
-    result = TeamService.redistribute_team_bets_by_no_draw_level()
+    result = TeamService.redistribute_team_bets_by_no_draw_level(field_name='all_bets')
 
     error = False
     for level, (old_total, new_total) in result.items():

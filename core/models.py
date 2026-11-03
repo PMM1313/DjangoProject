@@ -74,11 +74,11 @@ class Team(models.Model):
         }
 
     @classmethod
-    def get_total_all_bets(cls):
+    def get_total_all_bets(cls, field_name='all_bets'):
         """Calculates the sum of all_bets for every team in the table."""
         result = cls.objects.aggregate(
             total=Coalesce(
-                Sum('all_bets'),
+                Sum(field_name),
                 0,
                 output_field=DecimalField()
             )

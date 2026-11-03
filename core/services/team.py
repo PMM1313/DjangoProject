@@ -140,29 +140,32 @@ class TeamService:
             team.save(update_fields=["league"])
 
     @staticmethod
-    def redistribute_team_bets_by_no_draw_level():
+    def redistribute_team_bets_by_no_draw_level(field_name='all_bets'):
         """
-        Преразпределяне на сумите по нива (No draw = 1,2,3,4....
+        Prezrazpredelq sumite po niwa (No draw = 1, 2, 3, 4...)
+        za konkretnoto pole, podadeno kato string ('all_bets' ili 'gp_all_bets').
         """
+        # Validacia za sigurnost, za da se izbjegnat greshni poleta
+        valid_fields = ['all_bets', 'gp_all_bets']
+        if field_name not in valid_fields:
+            raise ValueError(f"Invalid field name: '{field_name}'. Allowed fields: {valid_fields}")
+
         levels = Team.objects.exclude(no_draw__isnull=True) \
             .values_list('no_draw', flat=True) \
             .distinct() \
             .order_by('no_draw')
 
-        results = {}
-
         with transaction.atomic():
             for level in levels:
                 teams_in_level = Team.objects.filter(no_draw=level, is_played=False).select_for_update()
                 count = teams_in_level.count()
-                new_total = Decimal('0')
 
                 if count == 0:
                     continue
 
                 # Сумираме
                 level_total = teams_in_level.aggregate(
-                    total=Coalesce(Sum('all_bets'), Decimal('0'), output_field=DecimalField())
+                    total=Coalesce(Sum(field_name), Decimal('0'), output_field=DecimalField())
                 )['total']
 
                 if level_total == 0:
@@ -177,8 +180,12 @@ class TeamService:
 
                 for i, team in enumerate(teams_in_level.order_by('id')):
                     bonus = Decimal('0.01') if i < remainder_pennies else Decimal('0')
-                    team.all_bets = base_part + bonus
-                    checksum_total += team.all_bets
+                    computed_value = base_part + bonus
+
+                    # Dinamichno zadavane na stoynostta na poleto chrez setattr
+                    setattr(team, field_name, computed_value)
+
+                    checksum_total += computed_value
                     updated_teams.append(team)
 
                 # --- THE RE-CHECK ---
@@ -188,6 +195,6 @@ class TeamService:
 
                 # --- THE SAVE ---
                 # Update only the 'all_bets' field for these specific objects
-                Team.objects.bulk_update(updated_teams, ['all_bets'])
+                Team.objects.bulk_update(updated_teams, [field_name])
 
         return True

@@ -27,3 +27,9 @@
 .tab-btn:hover:not(.active) {
     background: #e0e0e0;
 }
+
+/* new rule that works on mobile only (display below 768px) */
+    @media (max-width: 768px) {
+        flex-direction: column; /* buttons go one after another */
+        width: 100%;            /* take the hole width */
+    }

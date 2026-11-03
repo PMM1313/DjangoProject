@@ -116,6 +116,7 @@ def dashboard(request):
     available_plus = TrackingValue.get_total_available_plus()
     live_bets = Fixture.get_total_live_bets()
     teams_bets = Team.get_total_all_bets()
+    teams_gp_bets = Team.get_total_all_bets('gp_all_bets')
 
     #gp_plus
     total_active = FixtureService.get_total_gp_plus_for_draws()
@@ -186,6 +187,7 @@ def dashboard(request):
         'used_gp_plus': gp_total_recovered,  # used gp plus
         'live_bets': live_bets,
         'teams_bets': teams_bets,
+        'teams_gp_bets': teams_gp_bets,
         'stats_table': stats_table,  # for the weeks stats table
     })
 
@@ -1307,7 +1309,7 @@ def equalize_in_range(request):
     if request.method != 'POST':
         return toast_response("Method not allowed", level="error", status_code=405)
     try:
-        result = TeamService.redistribute_team_bets_by_no_draw_level()
+        result = TeamService.redistribute_team_bets_by_no_draw_level(field_name='all_bets')
 
         return toast_response(
             message="Bets redistributed successfully!",
@@ -1319,6 +1321,66 @@ def equalize_in_range(request):
         # This triggers the 'error' level toast in your frontend
         return toast_response(
             message=str(e),
+            level="error",
+            status_code=422
+        )
+
+    except Exception as e:
+        # 4. Catch-all for unexpected server crashes (500)
+        return toast_response(
+            message="A critical server error occurred.",
+            level="error",
+            status_code=500
+        )
+
+@login_required
+@transaction.atomic
+def equalize_in_range_gp_bets(request):
+
+    if request.method != 'POST':
+
+        return toast_response("Method not allowed", level="error", status_code=405)
+
+    try:
+        result = TeamService.redistribute_team_bets_by_no_draw_level(field_name='gp_all_bets')
+
+        return toast_response(
+            message="Bets redistributed successfully!",
+            level="success",
+        )
+
+
+    except ValueError as e:
+
+        error_message = str(e)
+
+        # Проверяваме дали грешката е свързана с невалидно име на поле
+        if "Invalid field name" in error_message:
+
+            return toast_response(
+
+                message=f"Грешка в конфигурацията: {error_message}",
+                level="error",
+                status_code=400  # Можеш да дадеш 400 Bad Request за клиентска грешка
+            )
+
+
+        # Или ако е свързана с математическото изчисление/контролната сума
+        elif "Math mismatch" in error_message:
+
+            return toast_response(
+
+                message=f"грешка при баланса: {error_message}",
+                level = "error",
+                status_code = 422  # 422 Unprocessable Entity си остава перфектно за математически несъответстваща сума
+
+            )
+
+
+        # Общ случай за други ValueError грешки
+        return toast_response(
+
+            message=error_message,
             level="error",
             status_code=422
         )

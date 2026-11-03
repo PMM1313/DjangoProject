@@ -46,6 +46,7 @@
             <div>
                 <h3>Current Stats</h3>
                 <div>Team`s Bets: {{ teams_bets }}</div>
+                <div>Team`s GP Bets: {{ teams_gp_bets }}</div>
                 <div>Live Bets: {{ live_bets }}</div>
                 <div>Available Plus: {{ available_plus }}</div>
                 <div>Available GP Plus: {{ available_gp_plus }}</div>
@@ -58,7 +59,9 @@
             {#border: 1px solid;#}
             border-radius: 8px;
             padding: 20px;
-            background: #eee;">
+            background: #eee;
+            overflow-x: auto;
+            width: 100%;">
 
             <table style="width: 100%; border-collapse: collapse; text-align: center;">
                 <thead>
