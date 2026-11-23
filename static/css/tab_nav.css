@@ -30,6 +30,13 @@
 
 /* new rule that works on mobile only (display below 768px) */
     @media (max-width: 768px) {
-        flex-direction: column; /* buttons go one after another */
-        width: 100%;            /* take the hole width */
+        .tabs-nav {
+        flex-direction: column; /* Бутоните минават един под друг */
+        width: 100%;            /* Заемат цялата налична ширина */
+        }
+        /* Допълнително: прави самите бутони да се разтягат на 100% ширина на телефона, ако искаш да запълнят пространството */
+        .tabs-nav .tab-btn {
+            width: 100%;
+            text-align: center; /* Центрира текста в бутона */
+        }
     }

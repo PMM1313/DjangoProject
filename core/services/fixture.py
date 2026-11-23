@@ -63,6 +63,38 @@ class FixtureService:
 
         return data["response"]
 
+    @staticmethod  # used in the import tab to fetch all teams for a country and import to mapping table
+    def fetch_teams_for_a_country_view(country_id):
+
+        country = get_object_or_404(Country, id=country_id)
+
+        # Задаваме името на държавата спрямо това, което API-то очаква (напр. "Czech-Republic")
+        # Можеш да имаш поле в Country за API име или да го мапваш директно
+        api_country_name = country.name.replace(" ", "-")
+
+        url = f"https://v3.football.api-sports.io/teams?country={api_country_name}"
+        headers = {
+            'x-apisports-key': getattr(settings, 'API_KEY'),
+        }
+
+        try:
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                raise Exception("API request failed")
+
+            data = response.json()
+            teams_list = data.get("response", [])
+
+        except Exception as e:
+            raise Exception(f"Error connecting to API: {str(e)}")
+
+        # Връщаме HTML шаблон с отборите, за да ги избере потребителят
+        context = {
+            'country': country,
+            'api_teams': teams_list,
+        }
+        return context
+
     # ---------- PROCESS AND SAVE BULK ----------
 
     def fetch_and_save_fixtures(self, date_from, date_to):
@@ -603,6 +635,15 @@ class FixtureService:
 
             if config.ALLWAYS_PLUS:
                 fixture = FixtureService.calculate_always_plus(fixture)
+
+            # case when ALLWAYS PLUS is not active but there are gp_all_bets
+            # to recover for teams with this value greater than 0
+            elif not config.ALLWAYS_PLUS:
+                gp_all_bets_away = fixture.away_team.gp_all_bets if fixture.away_team else Decimal('0.00')
+                gp_all_bets_home = fixture.home_team.gp_all_bets if fixture.home_team else Decimal('0.00')
+                total_gp_bets = gp_all_bets_home + gp_all_bets_away
+                if total_gp_bets > Decimal('0.00'): # option is OFF but there is gp_all_bets to recover
+                    fixture = FixtureService.calculate_always_plus(fixture)
 
             # 3. Finalize Fixture
             fixture.is_played = True

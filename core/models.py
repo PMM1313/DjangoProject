@@ -7,6 +7,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Sum, Q, DecimalField
 from django.db.models.functions import Coalesce
 
+from Server.settings import CONSTANCE_CONFIG
+
 
 class Country(models.Model):
     name = models.CharField(max_length=30, unique=True)
@@ -148,8 +150,12 @@ class Fixture(models.Model):
 
     @property
     def is_draw(self):
-        is_draw = self.home_score == self.away_score
-        return is_draw
+
+        if self.home_score is None or self.away_score is None:
+
+            return False
+
+        return self.home_score == self.away_score
 
     @property
     def total_fixture_bet(self):
@@ -186,7 +192,7 @@ class Fixture(models.Model):
 
         # teams doesnt have other not settled fixtures
         if not not_settled_fixtures:
-            return ''
+            return None
 
         messages = []
         for fixture in not_settled_fixtures:
@@ -223,6 +229,22 @@ class Fixture(models.Model):
         )
         # Sum the two results together
         return totals['all_home_bets'] + totals['all_away_bets']
+
+    @property
+    def home_team(self):
+        """Връща обекта Team за домакина по home_id."""
+        try:
+            return Team.objects.get(id=self.home_id)
+        except Team.DoesNotExist:
+            return None
+
+    @property
+    def away_team(self):
+        """Връща обекта Team за госта по away_id."""
+        try:
+            return Team.objects.get(id=self.away_id)
+        except Team.DoesNotExist:
+            return None
 
     def __str__(self):
         home_name = self.home_team_name if self.home_team_name else "Unknown"
@@ -559,3 +581,27 @@ class TeamLeagueHistory(models.Model):
 
     def __str__(self):
         return f"{self.team.name}: {self.old_league} -> {self.new_league} ({self.status})"
+
+
+class ConstanceAuditLog(models.Model):
+
+    CONSTANCE_CHOICES = [(key, key) for key in CONSTANCE_CONFIG.keys()]
+
+    key = models.CharField(
+        max_length=255,
+        choices=CONSTANCE_CHOICES,  # Това прави полето dropdown в админ панела
+        default='',
+        verbose_name="Име на настройка"
+    )
+
+    old_value = models.TextField(blank=True, null=True, verbose_name="Стара стойност")
+    new_value = models.TextField(blank=True, null=True, verbose_name="Нова стойност")
+    changed_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата и час на промяна")
+
+    class Meta:
+        verbose_name = "История промени на залози"
+        verbose_name_plural = "История промени на залози"
+        ordering = ['-changed_at']  # Най-новите отгоре
+
+    def __str__(self):
+        return f"{self.key} променена на {self.changed_at.strftime('%Y-%m-%d %H:%M:%S')}"

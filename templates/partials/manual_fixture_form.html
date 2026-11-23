@@ -1,17 +1,267 @@
-<form hx-post="{% url 'add_manual_fixture' %}" hx-swap="none" class="p-4 border rounded bg-light">
+<style>
+
+
+/* Main form */
+.manual-fixture-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px;
+    border: 1px solid #dcdfe4;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+/* Sections */
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-section-title {
+    margin: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 17px;
+    font-weight: 600;
+    color: #333333;
+}
+
+/* Grid layouts */
+.form-grid,
+.teams-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+/* Team cards */
+.team-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px;
+    border: 1px solid #e0e3e8;
+    border-radius: 8px;
+    background: #f9fafb;
+}
+
+.team-card-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #444444;
+}
+
+/* Individual fields */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+.form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #444444;
+}
+
+/* Inputs and dropdowns */
+.manual-fixture-form input,
+.manual-fixture-form select {
+    width: 100%;
+    min-height: 40px;
+    box-sizing: border-box;
+    padding: 9px 12px;
+    border: 1px solid #cfd4dc;
+    border-radius: 6px;
+    background-color: #ffffff;
+    color: #333333;
+    font-size: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.manual-fixture-form input:focus,
+.manual-fixture-form select:focus {
+    outline: none;
+    border-color: #4386d8;
+    box-shadow: 0 0 0 3px rgba(67, 134, 216, 0.15);
+}
+
+/* Submit button */
+.fixture-submit-btn {
+    align-self: flex-start;
+    min-width: 150px;
+    padding: 11px 22px;
+    border: none;
+    border-radius: 6px;
+    background: #198754;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.fixture-submit-btn:hover {
+    background: #157347;
+}
+
+.fixture-submit-btn:focus-visible {
+    outline: 3px solid rgba(25, 135, 84, 0.3);
+    outline-offset: 2px;
+}
+
+/* Validation errors */
+.manual-fixture-form .errorlist {
+    margin: 0;
+    padding-left: 18px;
+    color: #dc3545;
+    font-size: 13px;
+}
+
+/* Responsive */
+@media (max-width: 650px) {
+    .form-grid,
+    .teams-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .manual-fixture-form {
+        padding: 16px;
+    }
+}
+</style>
+
+
+<form hx-post="{% url 'add_manual_fixture' %}"
+      hx-swap="none"
+      class="manual-fixture-form">
+
     {% csrf_token %}
-    <div class="row">
-        <div class="col-md-6">{{ form.home_team.label_tag }} {{ form.home_team }}</div>
-        <div class="col-md-6">{{ form.away_team.label_tag }} {{ form.away_team }}</div>
+
+    <div class="form-section">
+        <h3 class="form-section-title">Fixture Details</h3>
+
+        <div class="form-grid">
+            <div class="form-group">
+                {{ form.league.label_tag }}
+                {{ form.league }}
+                {{ form.league.errors }}
+            </div>
+
+            <div class="form-group">
+                {{ form.season.label_tag }}
+                {{ form.season }}
+                {{ form.season.errors }}
+            </div>
+        </div>
     </div>
-    <div class="row mt-2">
-        <div class="col-md-4">{{ form.league.label_tag }} {{ form.league }}</div>
-        <div class="col-md-4">{{ form.country.label_tag }} {{ form.country }}</div>
-        <div class="col-md-4">{{ form.season.label_tag }} {{ form.season }}</div>
+
+    <div class="form-section">
+        <h3 class="form-section-title">Teams</h3>
+
+        <div class="teams-grid">
+
+            <!-- Home Team -->
+            <div class="team-card">
+                <h4 class="team-card-title">Home Team</h4>
+
+                <div class="form-group">
+                    <label for="id_home_country">Country</label>
+
+                    <select name="home_country"
+                            id="id_home_country"
+                            hx-get="{% url 'load_teams_by_country' %}"
+                            hx-trigger="change"
+                            hx-target="#id_home_team"
+                            hx-swap="innerHTML"
+                            required>
+                        <option value="">Select country</option>
+
+                        {% for country in form.home_country.field.queryset %}
+                            <option value="{{ country.id }}">
+                                {{ country.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    {{ form.home_team.label_tag }}
+
+                    <select name="home_team"
+                            id="id_home_team"
+                            required>
+                        <option value="">Select country first</option>
+                    </select>
+
+                    {{ form.home_team.errors }}
+                </div>
+            </div>
+
+            <!-- Away Team -->
+            <div class="team-card">
+                <h4 class="team-card-title">Away Team</h4>
+
+                <div class="form-group">
+                    <label for="id_away_country">Country</label>
+
+                    <select name="away_country"
+                            id="id_away_country"
+                            hx-get="{% url 'load_teams_by_country' %}"
+                            hx-trigger="change"
+                            hx-target="#id_away_team"
+                            hx-swap="innerHTML"
+                            required>
+                        <option value="">Select country</option>
+
+                        {% for country in form.away_country.field.queryset %}
+                            <option value="{{ country.id }}">
+                                {{ country.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    {{ form.away_team.label_tag }}
+
+                    <select name="away_team"
+                            id="id_away_team"
+                            required>
+                        <option value="">Select country first</option>
+                    </select>
+
+                    {{ form.away_team.errors }}
+                </div>
+            </div>
+
+        </div>
     </div>
-    <div class="row mt-2">
-        <div class="col-md-6">{{ form.date.label_tag }} {{ form.date }}</div>
-        <div class="col-md-6">{{ form.start_time.label_tag }} {{ form.start_time }}</div>
+
+    <div class="form-section">
+        <h3 class="form-section-title">Date and Time</h3>
+
+        <div class="form-grid">
+            <div class="form-group">
+                {{ form.date.label_tag }}
+                {{ form.date }}
+                {{ form.date.errors }}
+            </div>
+
+            <div class="form-group">
+                {{ form.start_time.label_tag }}
+                {{ form.start_time }}
+                {{ form.start_time.errors }}
+            </div>
+        </div>
     </div>
-    <button type="submit" class="btn btn-success mt-3">Save Fixture</button>
+
+    <button type="submit" class="fixture-submit-btn">
+        Save Fixture
+    </button>
+
 </form>

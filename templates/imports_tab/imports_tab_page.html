@@ -1,4 +1,30 @@
 <style>
+/* import_table style */
+
+.import_table {
+    display: flex;
+    border-radius: 8px;
+    background: #eee;
+}
+
+.import_table_options {
+    display: flex;
+    flex-direction: column; /* Change to 'row' if they should be side-by-side */
+    align-items: flex-start; /* STOPS children from stretching full height/width */
+    gap: 20px;
+    padding: 20px;
+    box-sizing: border-box;
+    border-radius: 8px;
+    background: #bae6fd;
+}
+
+/* Children (Buttons and Dropdown wrappers) */
+.import_table_options button,
+.import_table_options .form-select {
+    width: auto;     /* Prevents them from forcing 100% width */
+    flex-grow: 0;    /* Prevents them from growing to fill empty space */
+    flex-shrink: 0;  /* Prevents them from distorting */
+}
 /* 1. Remove the default browser-specific arrow markers */
 details summary::-webkit-details-marker {
     display: none;
@@ -85,143 +111,187 @@ details[open] .accordion-arrow {
     {% endfor %}
 </template>
 
+<div class="import_table_options">
+    <div style="display: flex; justify-content: center; align-items: center;">
+        <p style="margin: 0;">TEST</p>
+    </div>
 
-{% for country in view_data %}
-    <details class="country-block"
+    <!-- Select the country for which we want to fetch API teams -->
+    <select id="team-fetch-country"
+            name="country_id"
+            class="form-select">
+        <option value="">-- Select Country --</option>
+
+        {% for c in all_countries_for_team_import %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+    </select>
+
+    <!-- Бутон за извличане и показване на отборите за тази държава -->
+    <button type="button"
+            hx-get="{% url 'fetch_teams_for_country' %}"
+            hx-include="#team-fetch-country"
+            hx-target="#teams-container-{{ country.id }}"
+            hx-indicator="#spinner-{{ country.id }}"
+            class="btn btn-primary btn-sm">
+        Fetch & Map Teams from API
+    </button>
+
+    <!-- Индикатор за зареждане -->
+    <span id="spinner-{{ country.id }}" class="htmx-indicator spinner-border spinner-border-sm" role="status" style="display:none;"></span>
+
+    <!-- Контейнер, където ще се заредят отборите -->
+    <div id="teams-container-{{ country.id }}" style="margin-top: 15px;"></div>
+</div>
+
+
+<div class="import_table">
+    {% for country in view_data %}
+        <details class="country-block"
          data-external-country="{{ country.external_name }}"
          style="border: 2px solid black;
          border-radius: 8px;
          margin: 2rem 1.5rem;
          padding: 2rem;">
 
-        <summary style="
-            font-size: x-large;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;">
+            <summary style="
+                font-size: x-large;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: pointer;
+                user-select: none;">
 
-            <div style="width: 160px; visibility: hidden;" aria-hidden="true"></div>
+                <div style="width: 160px; visibility: hidden;" aria-hidden="true"></div>
 
-            <div class="country-mapping-container" style="display: flex; align-items: center; gap: 1rem;">
-                <!-- 1. Scraped External Name -->
-                <span>{{ country.external_name }}</span>
+                <div class="country-mapping-container" style="display: flex; align-items: center; gap: 1rem;">
+                    <!-- 1. Scraped External Name -->
+                    <span>{{ country.external_name }}</span>
 
-                <!-- 2. Pre-matched Internal Name (if exists) -->
-                {% if country.internal_obj %}
-                    <span class="internal-country-data"
-                          data-internal-id="{{ country.internal_obj.id }}"
-                          data-internal-name="{{ country.internal_obj.name }}">
-                        ({{ country.internal_obj.name }})
-                    </span>
-                {% endif %}
-
-                <!-- 3. Country Dropdown (Hidden if pre-matched, visible if unmatched) -->
-                <select class="form-select country-mapper" {% if country.internal_obj %}style="display:none;"{% endif %}>
-                    <!-- Will be populated by JS -->
-                </select>
-            </div>
-
-            <div class="accordion-indicators" style="display: flex; align-items: center; gap: 12px; width: 160px; justify-content: flex-end;">
-                <span class="toggle-text"></span>
-                <span class="accordion-arrow">▶</span>
-            </div>
-
-        </summary>
-
-        {% for league in country.leagues %}
-            <div class="league-block" data-external-league="{{ league.external_name }}">
-                <div style="
-                    display: flex;
-                    justify-content: left;
-                    gap: 0.5rem;
-                    margin-top: 0.5rem;
-                    margin-bottom: 0.5rem;
-                    margin-left: 0.5rem">
-
-                    <span>{{ league.external_name }}</span>
-
-                    {% if league.internal_obj %}
-                        <span class="internal-league-data"
-                              data-internal-id="{{ league.internal_obj.id }}"
-                              data-internal-name="{{ league.internal_obj.name }}">
-                            Linked: {{ league.internal_obj.name }}
+                    <!-- 2. Pre-matched Internal Name (if exists) -->
+                    {% if country.internal_obj %}
+                        <span class="internal-country-data"
+                              data-internal-id="{{ country.internal_obj.id }}"
+                              data-internal-name="{{ country.internal_obj.name }}">
+                            ({{ country.internal_obj.name }})
                         </span>
-                    {% else %}
-                        <select class="form-select d-inline-block w-auto league-mapper ms-2">
-                            <option value="">-- Map League --</option>
-                            {% for l in all_leagues %}
-                                {# If country is pre-matched, only show its leagues. If unmatched, show all leagues #}
-                                {% if not country.internal_obj or country.external_name == "World" or l.country.id == country.internal_obj.id %}
-                                    <option value="{{ l.id }}" data-country="{{ l.country.id }}">{{ l.name }} - {{ l.country.name }}</option>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
                     {% endif %}
+
+                    <!-- 3. Country Dropdown (Hidden if pre-matched, visible if unmatched) -->
+                    <select class="form-select country-mapper" {% if country.internal_obj %}style="display:none;"{% endif %}>
+                        <!-- Will be populated by JS -->
+                    </select>
                 </div>
 
-                <table class="table table-sm">
-                    {% for match_wrap in league.matches %}
-                    <tr class="fixture-row {% if not match_wrap.is_ready %}table-warning{% endif %}">
+                <div class="accordion-indicators" style="display: flex; align-items: center; gap: 12px; width: 160px; justify-content: flex-end;">
+                    <span class="toggle-text"></span>
+                    <span class="accordion-arrow">▶</span>
+                </div>
 
-                        <td class="fixture-time" style="padding-left: 0.5rem">
-                            {{ match_wrap.scraped.date }}
-                        </td>
+            </summary>
 
-                        <td data-external-team="{{ match_wrap.scraped.homeTeam }}">
-                            {{ match_wrap.scraped.homeTeam }}
-                            {% if match_wrap.home_obj %}
-                                <i class="fas fa-link text-success"></i>
-                                <small class="internal-team-data"
-                                       data-internal-id="{{ match_wrap.home_obj.id }}"
-                                       data-internal-name="{{ match_wrap.home_obj.name }}">
-                                    ({{ match_wrap.home_obj.name }})
-                                </small>
-                            {% else %}
-                                <select class="form-select form-select-sm d-inline-block w-auto team-mapper ms-1">
-                                    <option value="">-- Map Team --</option>
-                                    {% for t in all_teams %}
-                                        {# If country is pre-matched, only show its teams. If unmatched, show all teams #}
-                                        {% if not country.internal_obj or country.external_name == "World" or t.country.id == country.internal_obj.id %}
-                                            <option value="{{ t.id }}" data-country="{{ t.country.id|default:'' }}">{{ t.name }} - {{ t.country.name|default:"No Country" }}</option>
-                                        {% endif %}
-                                    {% endfor %}
-                                </select>
-                            {% endif %}
-                        </td>
+            {% for league in country.leagues %}
+                <div class="league-block" data-external-league="{{ league.external_name }}">
+                    <div style="
+                        display: flex;
+                        justify-content: left;
+                        gap: 0.5rem;
+                        margin-top: 0.5rem;
+                        margin-bottom: 0.5rem;
+                        margin-left: 0.5rem">
 
-                        <td>vs</td>
+                        <span>{{ league.external_name }}</span>
 
-                        <td data-external-team="{{ match_wrap.scraped.awayTeam }}">
-                            {{ match_wrap.scraped.awayTeam }}
-                            {% if match_wrap.away_obj %}
-                                <i class="fas fa-link text-success"></i>
-                                <small class="internal-team-data"
-                                       data-internal-id="{{ match_wrap.away_obj.id }}"
-                                       data-internal-name="{{ match_wrap.away_obj.name }}">
-                                    ({{ match_wrap.away_obj.name }})
-                                </small>
-                            {% else %}
-                                <select class="form-select form-select-sm d-inline-block w-auto team-mapper ms-1">
-                                    <option value="">-- Map Team --</option>
-                                    {% for t in all_teams %}
-                                        {# If country is pre-matched, only show its teams. If unmatched, show all teams #}
-                                        {% if not country.internal_obj or country.external_name == "World" or t.country.id == country.internal_obj.id %}
-                                            <option value="{{ t.id }}" data-country="{{ t.country.id|default:'' }}">{{ t.name }} - {{ t.country.name|default:"No Country" }}</option>
-                                        {% endif %}
-                                    {% endfor %}
-                                </select>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            </div>
-        {% endfor %}
+                        {% if league.internal_obj %}
+                            <span class="internal-league-data"
+                                  data-internal-id="{{ league.internal_obj.id }}"
+                                  data-internal-name="{{ league.internal_obj.name }}">
+                                Linked: {{ league.internal_obj.name }}
+                            </span>
+                        {% else %}
+                            <select class="form-select d-inline-block w-auto league-mapper ms-2">
+                                <option value="">-- Map League --</option>
+                                {% for l in all_leagues %}
+                                    {# If country is pre-matched, only show its leagues. If unmatched, show all leagues #}
+                                    {% if not country.internal_obj or country.external_name == "World" or l.country.id == country.internal_obj.id %}
+                                        <option value="{{ l.id }}" data-country="{{ l.country.id }}">{{ l.name }} - {{ l.country.name }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                    </div>
+
+                    <table class="table table-sm">
+                        {% for match_wrap in league.matches %}
+                        <tr class="fixture-row {% if not match_wrap.is_ready %}table-warning{% endif %}">
+
+                            <td class="fixture-time" style="padding-left: 0.5rem">
+                                {{ match_wrap.scraped.date }}
+                            </td>
+
+                            <td data-external-team="{{ match_wrap.scraped.homeTeam }}">
+                                {{ match_wrap.scraped.homeTeam }}
+                                {% if match_wrap.home_obj %}
+                                    <i class="fas fa-link text-success"></i>
+                                    <small class="internal-team-data"
+                                           data-internal-id="{{ match_wrap.home_obj.id }}"
+                                           data-internal-name="{{ match_wrap.home_obj.name }}">
+                                        ({{ match_wrap.home_obj.name }})
+                                    </small>
+                                {% else %}
+                                    <select class="form-select form-select-sm d-inline-block w-auto team-mapper ms-1">
+                                        <option value="">-- Map Team --</option>
+                                        {% for t in all_teams %}
+                                            {# If country is pre-matched, only show its teams. If unmatched, show all teams #}
+                                            {% if not country.internal_obj or country.external_name == "World" or t.country.id == country.internal_obj.id %}
+                                                <option value="{{ t.id }}" data-country="{{ t.country.id|default:'' }}">{{ t.name }} - {{ t.country.name|default:"No Country" }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                {% endif %}
+                            </td>
+
+                            <td>vs</td>
+
+                            <td data-external-team="{{ match_wrap.scraped.awayTeam }}">
+                                {{ match_wrap.scraped.awayTeam }}
+                                {% if match_wrap.away_obj %}
+                                    <i class="fas fa-link text-success"></i>
+                                    <small class="internal-team-data"
+                                           data-internal-id="{{ match_wrap.away_obj.id }}"
+                                           data-internal-name="{{ match_wrap.away_obj.name }}">
+                                        ({{ match_wrap.away_obj.name }})
+                                    </small>
+                                {% else %}
+                                    <select class="form-select form-select-sm d-inline-block w-auto team-mapper ms-1">
+                                        <option value="">-- Map Team --</option>
+                                        {% for t in all_teams %}
+                                            {# If country is pre-matched, only show its teams. If unmatched, show all teams #}
+                                            {% if not country.internal_obj or country.external_name == "World" or t.country.id == country.internal_obj.id %}
+                                                <option value="{{ t.id }}" data-country="{{ t.country.id|default:'' }}">{{ t.name }} - {{ t.country.name|default:"No Country" }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            {% endfor %}
+
+            <button id="save-mappings-btn"
+                class="btn btn-primary mb-4"
+                onclick="sendMappingsToServer(this)">
+            Save Manual Mappings
+</button>
+
     </details>
-{% endfor %}
 
+    {% empty %}
+        <p style="padding: 20px">--- No fixtures found ---<p>
+    {% endfor %}
+</div>
 {#<button id="save-mappings-btn"#}
 {#        class="btn btn-primary mb-4"#}
 {#        hx-post="/imports/save-manual-mappings/"#}
@@ -234,11 +304,7 @@ details[open] .accordion-arrow {
 {#    Save Manual Mappings#}
 {#</button>#}
 
-<button id="save-mappings-btn"
-        class="btn btn-primary mb-4"
-        onclick="sendMappingsToServer(this)">
-    Save Manual Mappings
-</button>
+
 
 <script>
 

@@ -1,0 +1,66 @@
+<style>
+.team_select_form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+</style>
+
+
+
+
+<form hx-post="{% url 'save_external_team_mappings_view' country.id %}"
+      hx-target="this"
+      hx-swap="outerHTML"
+      class="team_select_form">
+    {% csrf_token %}
+
+    <!-- Поле за търсене -->
+    <div>
+        <input type="text" id="team-search-input" class="form-control form-control-sm" placeholder="Search teams..." onkeyup="filterTeams()">
+    </div>
+
+    <div style="height: 300px; width: 450px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: #fff;">
+
+        <h6>Select Teams to Map for {{ country.name }}:</h6>
+
+        {% for item in api_teams %}
+
+            <div class="form-check team-item">
+                <!-- Стойността съдържа "API_ID|TEAM_NAME" -->
+                <input class="form-check-input" type="checkbox" name="selected_teams" value="{{ item.team.id }}|{{ item.team.name }}" id="team-{{ item.team.id }}">
+                <label class="form-check-label" for="team-{{ item.team.id }}">
+                    <img src="{{ item.team.logo }}" alt="" width="20" height="20" style="margin-right: 5px;">
+                    <strong>{{ item.team.name }}</strong> (API ID: {{ item.team.id }})
+                </label>
+            </div>
+
+        {% empty %}
+
+            <p>Nothing to iterate !!!</p>
+
+        {% endfor %}
+
+    </div>
+
+    <button type="submit" class="btn btn-success btn-sm mt-2">Save Selected to ExternalMapping</button>
+</form>
+
+
+<script>
+function filterTeams() {
+    let input = document.getElementById('team-search-input');
+    let filter = input.value.toLowerCase();
+    let items = document.getElementsByClassName('team-item');
+
+    for (let i = 0; i < items.length; i++) {
+        let label = items[i].getElementsByTagName('label')[0];
+        let textValue = label.textContent || label.innerText;
+        if (textValue.toLowerCase().indexOf(filter) > -1) {
+            items[i].style.display = "";
+        } else {
+            items[i].style.display = "none";
+        }
+    }
+}
+</script>

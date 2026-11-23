@@ -17,10 +17,14 @@ class ManualFixtureForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-control'})
     )
 
-    country = forms.ModelChoiceField(
+    home_country = forms.ModelChoiceField(
         queryset=Country.objects.all().order_by('name'),
-        label="Select Country",
-        widget=forms.Select(attrs={'class': 'form-control'})
+        label="Home Country"
+    )
+
+    away_country = forms.ModelChoiceField(
+        queryset=Country.objects.all().order_by('name'),
+        label="Away Country"
     )
 
     date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}))

@@ -11,7 +11,7 @@ from .models import (
     ForRecover,
     RecoverFixture,
     ExternalMapping,
-    PendingImport,
+    PendingImport, ConstanceAuditLog,
 )
 
 
@@ -176,3 +176,101 @@ class ForRecoverAdmin(admin.ModelAdmin):
 
     # Полета само за четене (ако не искаш да се променят ръчно, например датите)
     readonly_fields = ('date_added_to_recover', 'date_recovered')
+
+
+@admin.register(Fixture)
+class FixtureAdmin(admin.ModelAdmin):
+    # Данните, които се показват като колони на главния екран (списъка)
+    list_display = (
+        'fixture_id',
+        'date',
+        'home_team_name',
+        'away_team_name',
+        'home_score',
+        'away_score',
+        'status',
+        'is_played',
+        'league',
+        'season',
+    )
+
+    # Колоните, които да служат като линк към детайлната форма за редакция
+    list_display_links = ('fixture_id', 'home_team_name', 'away_team_name')
+
+    # Филтри в дясната лента за бързо сортиране
+    list_filter = (
+        'is_played',
+        'status',
+        'league',
+        'country',
+        'season',
+        'date'
+    )
+
+    # Полета за търсене в горната част на екрана
+    search_fields = (
+        'home_team_name',
+        'away_team_name',
+        'fixture_id',
+        'api_sport_id',
+        'league__name',
+        'country__name'
+    )
+
+    # Изискуеми readonly полета за @property методите ти,
+    # за да се виждат коректно на екрана при редакция на обекта:
+    readonly_fields = (
+        'total_fixture_bet',
+        'can_be_resolved',
+        'does_teams_have_played_fixtures',
+        'is_draw',
+    )
+
+    # Организиране на всички полета в логически секции при клик и редакция на обект
+    fieldsets = (
+        ('Идентификатори и Дата', {
+            'fields': ('fixture_id', 'api_sport_id', 'season', 'date')
+        }),
+        ('Отбори, Първенство и Коефициенти', {
+            'fields': (
+                'home_id', 'away_id',
+                'home_team_name', 'away_team_name',
+                'league', 'league_round', 'country',
+                'coefficient', 'home_n_play', 'away_n_play'
+            )
+        }),
+        ('Резултат и Статус на Мача', {
+            'fields': ('is_played', 'status', 'home_score', 'away_score', 'is_draw')
+        }),
+        ('Финансови данни (Залози и Печалби)', {
+            'fields': (
+                'home_team_bet', 'away_team_bet',
+                'home_team_profit', 'away_team_profit',
+                'home_team_plus', 'away_team_plus',
+                'total_fixture_bet'
+            )
+        }),
+        ('Guaranteed Plus (GP) и Възстановяване', {
+            'fields': (
+                'home_team_gp_bet', 'away_team_gp_bet',
+                'home_team_gp_plus', 'away_team_gp_plus',
+                'home_team_money_to_recover', 'away_team_money_to_recover',
+                'home_team_entry_for_recovery_with_bet', 'away_team_entry_for_recovery_with_bet',
+                'home_team_plus_used_for_recovery', 'away_team_plus_used_for_recovery'
+            )
+        }),
+        ('Валидация и Източници', {
+            'fields': ('can_be_resolved', 'does_teams_have_played_fixtures', 'sources')
+        }),
+    )
+
+
+@admin.register(ConstanceAuditLog)
+class ConstanceAuditLogAdmin(admin.ModelAdmin):
+
+
+    list_display = ('key', 'old_value', 'new_value', 'changed_at')
+    list_filter = ('key', 'changed_at')
+    search_fields = ('key', 'old_value', 'new_value')
+
+    readonly_fields = ('changed_at',)

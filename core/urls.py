@@ -21,6 +21,7 @@ urlpatterns = [
 
     # Fixtures & Match Logic
     path('fixture/add-manual/', views.add_manual_fixture, name='add_manual_fixture'),
+    path('load-teams-by-country/', views.load_teams_by_country_view, name='load_teams_by_country'),
     path("fixtures/sync/", views.fetch_and_save_fixtures, name="fetch-and-save-fixtures"),
     path('fixture/delete/<int:fixture_id>/', views.delete_fixture, name='delete_fixture'),
     path('fixture/play/<int:fixture_id>/', views.play_match, name='play_match'),
@@ -60,6 +61,14 @@ urlpatterns = [
     path('save-league-from-api/', views.save_league_from_api, name='save_league_from_api'),
     path('change-league-status/', views.change_league_used_or_not, name='change_league_used_or_not'),
     path('leagues/<int:league_id>/toggle-regular/', views.toggle_regular_league, name='toggle_regular_league'),
+
+    ######### import tab urls ###############
+
+
+    path('fetch-teams/', views.fetch_teams_for_country_view, name='fetch_teams_for_country'),
+    path('fetch-teams/import/<int:country_id>/', views.save_external_team_mappings_view, name='save_external_team_mappings_view'),
+
+    ######### end import tab urls ##########
 
     # adding manual plus to for recover entry
     path('update_recovery_amount_manual_plus/', views.update_recovery_amount, name='update_recovery_amount_manual_plus'),

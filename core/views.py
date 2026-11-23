@@ -350,6 +350,23 @@ def fetch_and_save_fixtures(request):
         )
 
 
+@login_required     # used in the import tab to fetch all teams for a country and import to mapping table
+def fetch_teams_for_country_view(request):
+
+    country_id = request.GET.get('country_id')
+
+    try:
+        context = FixtureService.fetch_teams_for_a_country_view(country_id)
+
+
+    except Exception as e:
+        return HttpResponse(f"{str(e)}", status=500)
+
+    # Връщаме HTML шаблон с отборите, за да ги избере потребителят
+
+    return render(request, 'imports_tab/partials/api_teams_checkbox_list.html', context)
+
+############# ADD MANUAL FIXTURE ####################
 @login_required
 @transaction.atomic
 def add_manual_fixture(request):
@@ -359,6 +376,12 @@ def add_manual_fixture(request):
             data = form.cleaned_data
             h_team = data['home_team']
             a_team = data['away_team']
+
+            # Get the selected countries
+            home_country_id = request.POST.get('home_country')
+            away_country_id = request.POST.get('away_country')
+
+            league = data['league']
 
             # 1. Handle Timezone-aware Datetime (Safe Version)
             naive_dt = datetime.combine(data['date'], data['start_time'])
@@ -383,8 +406,8 @@ def add_manual_fixture(request):
                 away_id=a_team.id,
                 home_team_name=h_team.name,
                 away_team_name=a_team.name,
-                league=data['league'],
-                country=data['country'],
+                league=league,
+                country=league.country,
                 date=fixture_dt,
                 status="Not Started",
                 season=data['season'],
@@ -404,8 +427,31 @@ def add_manual_fixture(request):
 
             return response
 
+        else:
+            # 💡 ТУК Е КЛЮЧОВО: Връщаме същата форма с грешките и въведените данни
+            return render(request, 'partials/manual_fixture_form.html', {'form': form})
+
     return render(request, 'partials/manual_fixture_form.html', {'form': ManualFixtureForm()})
 
+
+def load_teams_by_country_view(request):
+
+    country_id = request.GET.get('home_country') or request.GET.get('away_country')
+
+    # print("GET DATA:", request.GET)
+    # print("COUNTRY ID:", country_id)
+
+    teams = Team.objects.filter(country_id=country_id).order_by('name')
+
+    # print("TEAMS FOUND:", teams.count())
+
+    return render(
+        request,
+        'partials/team_dropdown_options.html',
+        {'teams': teams}
+    )
+
+############## END OF ADD MANUAL FIXTURE ##################
 
 @login_required
 @transaction.atomic
@@ -610,7 +656,9 @@ def teams_distribution_view(request):
 @require_GET  # <--- This handles the hx-trigger="load"
 # TODO use for_recover.get_recovery_data to get the data
 def get_distribution_partial(request):
-    recoveries = ForRecover.objects.filter(is_recovered=False).order_by('-date_added_to_recover')
+
+    recoveries = for_recover.get_recovery_data()
+
     return render(request, "partials/_distribution_table.html", {
         "initial_recoveries": recoveries
     })
@@ -793,18 +841,22 @@ def get_streaks(request):
 
     return render(request, 'partials/streaks_list.html', {'all_categories': final_streaks})
 
-
+################# IMPORT TAB #####################
 @login_required
 def imports_tab_page(request):
     """Loads the entire layout for the Imports tab."""
 
     pending = PendingImport.objects.filter(is_processed=False).order_by('-created_at').first()
+    context = {'all_countries_for_team_import': Country.objects.all().order_by('name')}
 
-    if not pending:
-        return HttpResponse("<p class='p-3'>No pending imports found.</p>")
+    if pending and pending.data:
+        all_data = pending.data.get('matches', {})
+    else:
+
+        return render(request, 'imports_tab/imports_tab_page.html', context)
 
     # The new structure: { "England": { "Premier League": [...] } }
-    all_data = pending.data.get('matches', {})
+
     view_data = []
 
     # Get ContentTypes once to avoid repeated DB hits in the loop
@@ -1026,6 +1078,45 @@ def save_manual_mappings(request):
         print(f"❌ DATABASE PROCESSING ERROR: {str(e)}")
         return toast_response(message=f"Error saving mappings: {str(e)}", level="error", status_code=400)
 
+
+@login_required
+@transaction.atomic
+def save_external_team_mappings_view(request, country_id):
+    if request.method != 'POST':
+        return HttpResponse("Method not allowed", status=405)
+
+    country = get_object_or_404(Country, id=country_id)
+
+    # Очакваме формата да ни изпраща както името, така и ID-то от API-то за всеки избран отбор
+    # Например от checkboxes подаваме стойност във формат "api_id:team_name" или ги взимаме скрито
+    selected_teams_data = request.POST.getlist('selected_teams')  # списък от стрингове "id|name"
+
+    team_content_type = ContentType.objects.get_for_model(Team)
+
+    created_count = 0
+    for item in selected_teams_data:
+        try:
+            api_team_id, ext_name = item.split('|', 1)
+        except ValueError:
+            continue  # Пропускаме, ако форматът е сгрешен
+
+        # Създаваме или взимаме мапинга, като използваме API ID-то за object_id
+        mapping, created = ExternalMapping.objects.get_or_create(
+            external_name=ext_name,
+            content_type=team_content_type,
+            country=country,
+            defaults={
+                'object_id': int(api_team_id)  # API ID-то става object_id директно!
+            }
+        )
+
+        if created:
+            created_count += 1
+
+    return HttpResponse(
+        f"<div class='alert alert-success'>Successfully mapped {created_count} external teams using their API IDs!</div>")
+
+############## END IMPORT TAB ####################
 
 # ------------ LEAGUES TAB ---------------------
 @login_required

@@ -1,6 +1,8 @@
+from collections import defaultdict
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from ..models import Team, Fixture, Country, League, Settings, ArchivedFixture, ForRecover, RecoverFixture
@@ -92,35 +94,61 @@ def use_plus_for_recovery(fixture):
 
 
 def get_recovery_data():
-    # Filter unrecovered records directly in PostgreSQL
-    queryset = ForRecover.objects.filter(is_recovered=False).order_by(
-        'date_added_to_recover'
-    )
+    queryset = ForRecover.objects.filter(is_recovered=False).prefetch_related(
+        Prefetch(
+            'fixtures_for_recover',
+            queryset=RecoverFixture.objects.filter(value_type='plus'),
+            to_attr='plus_fixtures' # Зареждаме ги в този атрибут
+        )
+    ).order_by('date_added_to_recover')
 
-    # Format the data (Service)
-    initial_data = format_recovery_data(queryset)
-
-    print(initial_data)
-    return initial_data
+    return format_recovery_data(queryset)
 
 
 def format_recovery_data(queryset):
     # Filter directly in SQL before evaluating the QuerySet
+    formatted_data = []
 
-    return [
-        {
+    for r in queryset:
+        # Групиране по fixture_id, като изчисляваме total_value
+        fixtures_grouped = defaultdict(lambda: {
+            "fixture_id": None,
+            "date": None,
+            "total_value": 0.0
+        })
+
+        # Обхождаме предварително заредените плюс фикстури
+        for f in r.plus_fixtures:
+            key = f.fixture_id
+            item = fixtures_grouped[key]
+
+            if item["fixture_id"] is None:
+                item["fixture_id"] = f.fixture_id
+                item["date"] = f.date.strftime("%Y-%m-%d %H:%M")
+                item["total_value"] = float(f.value)
+            else:
+                # Ако записът със същия fixture_id вече съществува, събираме стойностите в total_value
+                item["total_value"] += float(f.value)
+
+        formatted_data.append({
             "id": r.id,
             "date_added": r.date_added_to_recover.strftime("%Y-%m-%d %H:%M"),
             "team_name": r.team_name,
             "bets_writen_off": float(r.bets_writen_off),
+            "gp_bets_writen_off": float(r.gp_bets_writen_off),
             "bets_recovered": float(r.bets_recovered),
-            "manual_plus": float(r.plus_used_manual),
-            "is_recovered": r.is_recovered,
+            "gp_bets_recovered": float(r.gp_bets_recovered),
+            "plus_used_to_recover": float(r.plus_used_to_recover),
+            "plus_used_manual": float(r.plus_used_manual),
             "bets_to_recover": float(r.bets_to_recover),
-            # ... add the rest of your fields here ...
-        }
-        for r in queryset
-    ]
+            "fixtures_played": r.fixtures_played,
+            "fixtures_recovered": r.fixtures_recovered,
+            "fixtures_plus_recovered": len(fixtures_grouped),
+            "is_recovered": r.is_recovered,
+            # Превръщаме групираните фикстури в списък, готов за шаблона
+            "plus_fixtures": list(fixtures_grouped.values())
+        })
+    return formatted_data
 
 
 def _process_team_recovery(entry, fixture, team_prefix):
